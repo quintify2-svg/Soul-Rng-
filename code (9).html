@@ -1,0 +1,1783 @@
+﻿<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Souls RNG (Editable)</title>
+  <style>
+    body { background: black; color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
+    canvas { display: block; margin: 100px auto 40px auto; width: 400px; height: 400px; }
+    #inventoryToggle, #indexToggle,  #inventoryToggle { bottom: 0; left: 50%; transform: translateX(-50%); }
+    #indexToggle { bottom: 20px; left: 20px; }
+  </style>
+</head>
+<body>
+<div id="coinCounter" style="
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111;
+  color: #0f0;
+  padding: 6px 12px;
+  border: 1px solid white;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 16px;
+  z-index: 1000;
+">
+  💰 Coins: 0
+</div>
+<div id="rollHint" style="
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -200%);
+  color: white;
+  font-size: 18px;
+  font-family: monospace;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 1px solid white;
+  z-index: 1000;
+">
+  ␣ Press Space to Roll
+</div>
+<div id="overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index: 900;"></div>
+ <button id="indexToggle" onclick="toggleSoulIndex()" style="
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #222;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1000;
+">🧠 Soul Index</button>
+
+
+
+
+  <button id="saveBtn" onclick="downloadSave()" style="
+  position: fixed;
+  bottom: 60px;
+  right: 20px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #222;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1000;
+">💾 Save</button>
+
+
+
+
+<input type="file" id="loadFile" style="display:none" onchange="importSave(event)">
+<button id="loadBtn" onclick="document.getElementById('loadFile').click()" style="
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #222;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1000;
+">📂 Load</button>
+
+
+
+
+<button id="settingsBtn" onclick="toggleSettings()" style="
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #222;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1000;
+">⚙️ Settings</button>
+
+
+
+
+<button id="inventoryToggle" onclick="toggleInventory()" style="
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  font-size: 14px;
+  background: #222;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1000;
+">📦 Inventory</button>
+  <canvas id="gameCanvas" width="300" height="300"></canvas>
+  <div id="inventory" style="display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+width: 90%; max-width: 600px; max-height: 80%; background: #111; color: white; border: 2px solid white; padding: 20px; overflow-y: auto; z-index: 1000; border-radius: 10px; box-shadow: 0 0 20px rgba(255,255,255,0.3);">
+  <div style="text-align: right; margin-bottom: 10px;">
+    <button onclick="toggleInventory()" style="background: #222; color: white; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer;">✖ Close</button>
+  </div>
+  <!-- Tabs -->
+  <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px;">
+    <button onclick="switchInventoryTab('souls')" id="soulsTabBtn" style="padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; background: #444; color: white;">🧠 Souls</button>
+    <button onclick="switchInventoryTab('items')" id="itemsTabBtn" style="padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; background: #222; color: white;">🧰 Items</button>
+  </div>
+  <!-- Soul Content -->
+  <div id="soulInventoryTab">
+    <div id="inventoryList"></div>
+  </div>
+  <!-- Item Content -->
+  <div id="itemInventoryTab" style="display: none;">
+    <div id="itemInventoryList"><p>No items yet.</p></div>
+  </div>
+</div>
+  <div id="soulIndex" style="display:none;"></div>
+  <div id="replacePopup" style="display:none;"></div>
+<div id="settingsModal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
+background:#111; padding:20px; border:2px solid white; border-radius:10px; z-index:1000; width:300px; max-height:80%; overflow-y:auto; color:white;">
+  <h3>Auto-Skip Settings</h3>
+  <p>Select rarities to skip during rolls:</p>
+  <div id="skipRarityList"></div>
+  <button onclick="toggleSettings()" style="margin-top:10px;">✖ Close</button>
+</div>
+<div id="shopSidebar" style="
+  display: none;
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 300px;
+  height: 100%;
+  background: #111;
+  border-left: 2px solid white;
+  padding: 20px;
+  color: white;
+  overflow-y: auto;
+  z-index: 999;
+  box-shadow: -5px 0 10px rgba(255,255,255,0.2);
+">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2 style="margin: 0; font-size: 20px;">🛒 Shop</h2>
+    <button onclick="toggleShop()" style="background: #222; color: white; border: none; padding: 4px 10px; border-radius: 5px; cursor: pointer;">✖</button>
+  </div>
+  <p id="shopResetTimer" style="color: #aaa; margin-top: 5px;">⏳ Reset in: 05:00</p>
+  <hr style="border: 1px solid #333; margin: 10px 0;">
+  <div id="shopItemsContainer"></div>
+</div>
+<button onclick="toggleShop()" style="
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #222;
+  color: white;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1000;
+">🛍️ Open Shop</button>
+<div id="boostStatus" style="position: fixed; top: 47px; left: 50%; transform: translateX(-50%);
+  background: #111; color: #0f0; padding: 6px 12px; border-radius: 6px; font-size: 14px; z-index: 999;">
+  Luck: 1.0x | Speed: 1.0x | Auto: OFF
+</div>
+
+
+
+
+  <script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+  let isRolling = false;
+ let money = 0;
+let itemInventory = [];
+let hasRolled = false;
+let rollCooldown = 3000; // 2 seconds base cooldown
+let lastRollTime = 0;
+let gradientShift = 0;
+let maxInventorySlots = 10;  // default starting slots
+let slotUpgradeLevel = 0;    // how many times upgraded
+let skipSettings = {
+  "Common": false,
+  "Uncommon": false,
+  "Rare": false,
+  "Epic": false,
+  "Legendary": false,
+  "Mythic": false,
+  "Celestial": false,
+  "Prismatic": false,
+  "Transcendent": false,
+  "Universal": false,
+  "Secret": false
+};
+
+
+
+
+function renderSkipSettings() {
+  const list = document.getElementById("skipRarityList");
+  list.innerHTML = "";
+
+
+
+
+  rarities.forEach(r => {
+    const label = document.createElement("label");
+    label.style.display = "block";
+    label.style.marginBottom = "6px";
+
+
+
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = skipSettings[r.name];
+    checkbox.onchange = () => {
+      skipSettings[r.name] = checkbox.checked;
+    };
+
+
+
+
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(" " + r.name));
+    list.appendChild(label);
+  });
+}
+
+
+
+
+function toggleSettings() {
+  const modal = document.getElementById("settingsModal");
+  modal.style.display = modal.style.display === "block" ? "none" : "block";
+  renderSkipSettings();
+}
+
+
+
+
+function updateCoinCounter() {
+  let totalIncome = 0;
+  inventory.forEach(soul => {
+    totalIncome += getSoulIncome(soul);
+  });
+
+
+
+
+  document.getElementById("coinCounter").innerText =
+    "💰 Coins: " + money.toLocaleString() +
+    " (+" + totalIncome.toFixed(1) + "/sec)";
+}
+
+
+
+
+function toggleInventory() {
+  const inventoryDiv = document.getElementById("inventory");
+  const overlay = document.getElementById("overlay");
+
+
+
+
+  const isVisible = inventoryDiv.style.display === "block";
+  inventoryDiv.style.display = isVisible ? "none" : "block";
+  overlay.style.display = isVisible ? "none" : "block";
+
+
+
+
+  if (!isVisible) {
+    renderInventory();
+    switchInventoryTab('souls');  // 👈 Make sure this line is included
+  }
+}
+
+
+
+
+function renderInventory() {
+  const container = document.getElementById("inventoryList");
+  container.innerHTML = "";
+
+
+
+
+  if (inventory.length === 0) {
+    container.innerHTML = "<p>No souls collected yet.</p>";
+  } else {
+    inventory.forEach((soul, index) => {
+      const div = document.createElement("div");
+      div.style.marginBottom = "10px";
+      div.style.padding = "10px";
+      div.style.border = "1px solid white";
+      div.style.borderRadius = "8px";
+      div.style.background = "#222";
+      div.style.position = "relative";
+
+
+
+
+      div.innerHTML = `
+        <strong style="color:${soul.color}">${soul.name}</strong> 
+        ${soul.locked ? '🔒' : ''}<br>
+        <span>Rarity: ${soul.rarity}</span><br>
+        <span>Rolled at: ${soul.timestamp}</span><br>
+        <span style="font-style: italic;">"${soul.quote}"</span><br><br>
+        <span>Income: +${getSoulIncome(soul)} / sec</span><br>
+      `;
+
+
+
+
+      // Lock Button
+      const lockBtn = document.createElement("button");
+      lockBtn.textContent = soul.locked ? "🔓 Unlock" : "🔒 Lock";
+      lockBtn.style.marginRight = "10px";
+      lockBtn.style.background = "#444";
+      lockBtn.style.color = "white";
+      lockBtn.style.border = "none";
+      lockBtn.style.padding = "4px 10px";
+      lockBtn.style.borderRadius = "5px";
+      lockBtn.style.cursor = "pointer";
+      lockBtn.onclick = () => {
+        soul.locked = !soul.locked;
+        renderInventory();
+      };
+
+
+
+
+      // Delete Button
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "🗑️ Delete";
+      deleteBtn.style.background = "#900";
+      deleteBtn.style.color = "white";
+      deleteBtn.style.border = "none";
+      deleteBtn.style.padding = "4px 10px";
+      deleteBtn.style.borderRadius = "5px";
+      deleteBtn.style.cursor = "pointer";
+      deleteBtn.onclick = () => {
+        if (soul.locked) {
+          alert("This soul is locked and cannot be deleted.");
+          return;
+        }
+        inventory.splice(index, 1);
+        renderInventory();
+      };
+
+
+
+
+      div.appendChild(lockBtn);
+      div.appendChild(deleteBtn);
+      container.appendChild(div);
+    });
+  }
+
+
+
+
+  // ✅ Always show upgrade section at the bottom
+  const upgradeSection = document.createElement("div");
+  upgradeSection.style.marginTop = "15px";
+  upgradeSection.style.textAlign = "center";
+
+
+
+
+  upgradeSection.innerHTML = `
+    <button id="upgradeBtn" 
+      style="background:#2ecc71; color:white; padding:6px 12px; border:none; border-radius:5px; cursor:pointer;">
+      Upgrade Slots (Cost: ${getUpgradeCost()}💰)
+    </button>
+    <div id="upgradeInfo" style="margin-top:5px; color:lightgray; font-size:12px;">
+      Current Slots: ${maxInventorySlots}
+    </div>
+  `;
+
+
+
+
+  container.appendChild(upgradeSection);
+
+
+
+
+  // Hook up upgrade button again
+  document.getElementById("upgradeBtn").onclick = upgradeSlots;
+}
+
+
+
+
+const rarities = [
+  { name: "Common", weight: 50.00, color: "gray" },
+  { name: "Uncommon", weight: 25.00, color: "green" },
+  { name: "Rare", weight: 15.00, color: "blue" },
+  { name: "Epic", weight: 5.00, color: "purple" },
+  { name: "Legendary", weight: 2.00, color: "orange" },
+  { name: "Mythic", weight: 1.00, color: "red" },
+  { name: "Celestial", weight: 0.50, color: "cyan" },
+  { name: "Prismatic", weight: 0.30, color: "magenta" },
+  { name: "Transcendent", weight: 0.10, color: "gold" },
+  { name: "Universal", weight: 0.09, color: "black" },
+  { name: "Secret", weight: 0.01, color: "#ffe600" }
+];
+
+
+
+
+const soulMap = {
+  "Common": {
+    good: [
+      { name: "Kindness", color: "#27ae60", quote: "A smile can heal wounds." },
+      { name: "Patience", color: "#3498db", quote: "Waiting is a strength." },
+      { name: "Gratitude", color: "#f1c40f", quote: "Even little things matter." },
+      { name: "Honesty", color: "#2ecc71", quote: "The truth is light." },
+      { name: "Courage", color: "#e67e22", quote: "Stand tall in small steps." }
+    ],
+    bad: [
+      { name: "Apathy", color: "#7f8c8d", quote: "Why care at all?" },
+      { name: "Neglect", color: "#95a5a6", quote: "Forgotten without regret." },
+      { name: "Laziness", color: "#34495e", quote: "Tomorrow will do." },
+      { name: "Gossip", color: "#9b59b6", quote: "Words can cut deeper than steel." },
+      { name: "Selfishness", color: "#c0392b", quote: "Mine, not yours." }
+    ]
+  },
+
+
+
+
+  "Uncommon": {
+    good: [
+      { name: "Hope", color: "#2980b9", quote: "The dawn always comes." },
+      { name: "Trust", color: "#2ecc71", quote: "Shared burdens feel lighter." },
+      { name: "Empathy", color: "#1abc9c", quote: "I feel your pain as my own." },
+      { name: "Respect", color: "#16a085", quote: "Every voice deserves to be heard." },
+      { name: "Optimism", color: "#f39c12", quote: "The glass is half full." }
+    ],
+    bad: [
+      { name: "Doubt", color: "#7f8c8d", quote: "The cracks spread within." },
+      { name: "Jealousy", color: "#8e44ad", quote: "What they have should be mine." },
+      { name: "Envy", color: "#27ae60", quote: "Their joy fuels my fire." },
+      { name: "Cynicism", color: "#34495e", quote: "All good hides a trick." },
+      { name: "Fear", color: "#2c3e50", quote: "Shadows swallow my courage." }
+    ]
+  },
+
+
+
+
+  "Rare": {
+    good: [
+      { name: "Compassion", color: "#1abc9c", quote: "The heart feels beyond itself." },
+      { name: "Ambition", color: "#e67e22", quote: "The stars are within reach." },
+      { name: "Creativity", color: "#9b59b6", quote: "Something new takes shape." },
+      { name: "Justice", color: "#2980b9", quote: "Balance must be restored." },
+      { name: "Determination", color: "#d35400", quote: "I will not stop here." }
+    ],
+    bad: [
+      { name: "Pride", color: "#c0392b", quote: "I am higher than them all." },
+      { name: "Impatience", color: "#e74c3c", quote: "Why wait, when I can take?" },
+      { name: "Resentment", color: "#8e44ad", quote: "Old wounds still bleed." },
+      { name: "Stubbornness", color: "#7f8c8d", quote: "I will not bend." },
+      { name: "Vanity", color: "#f1c40f", quote: "Admire me, always." }
+    ]
+  },
+
+
+
+
+  "Epic": {
+    good: [
+      { name: "Wisdom", color: "#9b59b6", quote: "See beyond the moment." },
+      { name: "Loyalty", color: "#2980b9", quote: "I will never leave." },
+      { name: "Integrity", color: "#2c3e50", quote: "My word is unshaken." },
+      { name: "Faith", color: "#16a085", quote: "Belief shapes reality." },
+      { name: "Perseverance", color: "#27ae60", quote: "Through storm and fire." }
+    ],
+    bad: [
+      { name: "Greed", color: "#f1c40f", quote: "Enough is never enough." },
+      { name: "Wrath", color: "#e74c3c", quote: "My fury consumes me." },
+      { name: "Manipulation", color: "#8e44ad", quote: "Strings dance to my tune." },
+      { name: "Arrogance", color: "#c0392b", quote: "I cannot be wrong." },
+      { name: "Betrayal", color: "#34495e", quote: "Trust, broken forever." }
+    ]
+  },
+
+
+
+
+  "Legendary": {
+    good: [
+      { name: "Honor", color: "#d35400", quote: "My path is clear." },
+      { name: "Bravery", color: "#e74c3c", quote: "Fear bows to me." },
+      { name: "Ascension", color: "#f39c12", quote: "Beyond mortal limits." },
+      { name: "Vision", color: "#2980b9", quote: "The future is open." },
+      { name: "Purity", color: "#ecf0f1", quote: "Unstained by the world." }
+    ],
+    bad: [
+      { name: "Recklessness", color: "#e67e22", quote: "The cliff is just another step." },
+      { name: "Obsession", color: "#8e44ad", quote: "Nothing else matters." },
+      { name: "Corruption", color: "#34495e", quote: "Everything decays." },
+      { name: "Despair", color: "#7f8c8d", quote: "The light will never return." },
+      { name: "Cataclysm", color: "#c0392b", quote: "All must fall." }
+    ]
+  },
+
+
+
+
+  "Mythic": {
+    good: [
+      { name: "Balance", color: "#1abc9c", quote: "Harmony in all things." },
+      { name: "Clarity", color: "#3498db", quote: "Truth shines through illusion." },
+      { name: "Serenity", color: "#9b59b6", quote: "Still waters reflect truth." },
+      { name: "Guardian", color: "#27ae60", quote: "I stand eternal." },
+      { name: "Awakening", color: "#f1c40f", quote: "Eyes open to the infinite." }
+    ],
+    bad: [
+      { name: "Madness", color: "#9b59b6", quote: "Meaning is a lie." },
+      { name: "Nihilism", color: "#7f8c8d", quote: "Nothing ever mattered." },
+      { name: "Eclipse", color: "#2c3e50", quote: "Darkness devours light." },
+      { name: "Torment", color: "#c0392b", quote: "Endless, gnawing pain." },
+      { name: "Voidborn", color: "#34495e", quote: "I am the silence." }
+    ]
+  },
+
+
+
+
+  "Celestial": {
+    good: [
+      { name: "Harmony", color: "#ecf0f1", quote: "The stars sing together." },
+      { name: "Radiance", color: "#ffff00", quote: "Shine brighter than suns." },
+      { name: "Providence", color: "#2980b9", quote: "Fate bends in my favor." },
+      { name: "Infinity", color: "#00ffff", quote: "Endless as the cosmos." },
+      { name: "Genesis", color: "#ffffff", quote: "From nothing, creation." }
+    ],
+    bad: [
+      { name: "Isolation", color: "#7f8c8d", quote: "I drift alone, forever." },
+      { name: "Delusion", color: "#8e44ad", quote: "False gods whisper." },
+      { name: "Collapse", color: "#2c3e50", quote: "Gravity takes all." },
+      { name: "Tyranny", color: "#c0392b", quote: "All must bow." },
+      { name: "Extinction", color: "#34495e", quote: "The last light dies." }
+    ]
+  },
+
+
+
+
+  "Prismatic": {
+    good: [
+      { name: "Unity", color: "#ffffff", quote: "Many, yet one." },
+      { name: "Spectrum", color: "#ffff00", quote: "Every color is truth." },
+      { name: "Prismheart", color: "#ff00ff", quote: "Hope refracted endlessly." },
+      { name: "Bloom", color: "#00ff00", quote: "Life bursts from nothing." },
+      { name: "Resonance", color: "#2980b9", quote: "Voices in harmony." }
+    ],
+    bad: [
+      { name: "Fracture", color: "#34495e", quote: "Broken shards scatter." },
+      { name: "Oblivion", color: "#2c3e50", quote: "All fades to gray." },
+      { name: "Discord", color: "#e74c3c", quote: "Harmony undone." },
+      { name: "Paranoia", color: "#8e44ad", quote: "Everyone watches." },
+      { name: "Corrosion", color: "#7f8c8d", quote: "Beauty rots." }
+    ]
+  },
+
+
+
+
+  "Transcendent": {
+    good: [
+      { name: "Eternity", color: "#ecf0f1", quote: "I do not end." },
+      { name: "Omniscience", color: "#f1c40f", quote: "I know all things." },
+      { name: "Ascendant", color: "#00ffff", quote: "Above gods, beyond mortals." },
+      { name: "Transfiguration", color: "#9b59b6", quote: "Changed forever." },
+      { name: "Truthsong", color: "#27ae60", quote: "Resonating across time." }
+    ],
+    bad: [
+      { name: "Disintegration", color: "#7f8c8d", quote: "Everything falls apart." },
+      { name: "Obliviate", color: "#34495e", quote: "Erased from memory." },
+      { name: "Insatiable", color: "#c0392b", quote: "Even infinity isn’t enough." },
+      { name: "Annihilation", color: "#2c3e50", quote: "Nothing survives." },
+      { name: "Chaosborn", color: "#8e44ad", quote: "Unbound, untamed, uncontrolled." }
+    ]
+  },
+
+
+
+
+  "Universal": {
+    good: [
+      { name: "Freedom", color: "#00ffff", quote: "No chain can bind me." },
+      { name: "Truth", color: "#ffffff", quote: "All lies burn away." },
+      { name: "Absolute", color: "#f1c40f", quote: "Perfect, unbroken." },
+      { name: "Continuum", color: "#ecf0f1", quote: "I am all timelines." },
+      { name: "Ascendancy", color: "#ff66ff", quote: "Dominion without rival." }
+    ],
+    bad: [
+      { name: "Collapse", color: "#2c3e50", quote: "All things fall inward." },
+      { name: "Null", color: "#7f8c8d", quote: "Nothing, forever." },
+      { name: "Endbringer", color: "#c0392b", quote: "The final shadow." },
+      { name: "Infinite Hunger", color: "#ff3300", quote: "Worlds devoured whole." },
+      { name: "Absolute Zero", color: "#00ccff", quote: "Heat death eternal." }
+    ]
+  },
+
+
+
+
+  "Secret": {
+    good: [
+      { name: "True Balance", color: "#00ffcc", quote: "The scales are whole." },
+      { name: "Final Dawn", color: "#ff3300", quote: "The last sunrise." },
+      { name: "Absolute Harmony", color: "#ffff00", quote: "Nothing divides me." },
+      { name: "Omniversal Light", color: "#ffffff", quote: "Beyond every universe." },
+      { name: "The Origin", color: "#ff00ff", quote: "Where all began." }
+    ],
+    bad: [
+      { name: "Eternal Silence", color: "#666666", quote: "No sound, no light, no end." },
+      { name: "The End of Ends", color: "#990000", quote: "Even nothing dies." },
+      { name: "Broken Reality", color: "#ff6600", quote: "Shards of what was." },
+      { name: "False God", color: "#ff0000", quote: "Power without truth." },
+      { name: "The Void Eternal", color: "#000000", quote: "Endless consumption." }
+    ]
+  }
+};
+const rarityPool = rarities.flatMap(r => Array(Math.round(r.weight * 100)).fill(r));
+let inventory = [];
+let seenSouls = {};
+
+
+
+
+function drawPixelHeart(centerX, centerY, size, fillStyle, flip = false) {
+  const pixel = size / 8;
+  const pattern = [
+    "01100110",
+    "11111111",
+    "11111111",
+    "11111111",
+    "01111110",
+    "00111100",
+    "00011000",
+    "00000000"
+  ];
+  ctx.fillStyle = fillStyle; // <- can be solid color OR gradient
+  for (let y = 0; y < pattern.length; y++) {
+    for (let x = 0; x < pattern[y].length; x++) {
+      if (pattern[y][x] === "1") {
+        const drawY = flip ? centerY + (3 - y) * pixel : centerY + (y - 4) * pixel;
+        ctx.fillRect(centerX + (x - 4) * pixel, drawY, pixel, pixel);
+      }
+    }
+  }
+}
+
+
+
+
+function getCoinValue(rarity) {
+  switch (rarity) {
+    case "Common": return 50;
+    case "Uncommon": return 100;
+    case "Rare": return 250;
+    case "Epic": return 600;
+    case "Legendary": return 1500;
+    case "Mythic": return 300 * 50;
+    case "Celestial": return 600 * 50;
+    case "Prismatic": return 1000 * 50;
+    case "Transcendent": return 2000 * 50;
+    case "Universal": return 5000 * 50;
+    case "Secret": return 10000 * 50;
+    default: return 0;
+  }
+}
+
+
+
+
+function getRandomSoul() {
+  const rarity = rarityPool[Math.floor(Math.random() * rarityPool.length)];
+  const isBad = Math.random() < 0.3;
+  const pool = (soulMap[rarity.name] && (isBad ? soulMap[rarity.name].bad : soulMap[rarity.name].good)) || [];
+  const soul = pool[Math.floor(Math.random() * pool.length)] || { name: "???", color: "white", quote: "Unknown" };
+  return {
+    ...soul,
+    rarity: rarity.name,
+    isBad,
+    timestamp: new Date().toLocaleTimeString(),
+    locked: false
+  };
+}
+
+
+
+
+function drawSoul(soul) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+
+
+
+
+  let fillStyle = soul.color;
+  gradientShift = (gradientShift + 0.01) % 1; // smooth animation
+
+
+
+
+  const legendaryIndex = rarities.findIndex(r => r.name === "Legendary");
+  const soulIndex = rarities.findIndex(r => r.name === soul.rarity);
+
+
+
+
+  if (soulIndex >= legendaryIndex) {
+    let gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+
+
+
+
+    switch (soul.rarity) {
+      case "Legendary":
+        gradient.addColorStop(0, "red");
+        gradient.addColorStop(1, "orange");
+        break;
+      case "Mythic":
+        gradient.addColorStop(0, "purple");
+        gradient.addColorStop(1, "pink");
+        break;
+      case "Celestial":
+        gradient.addColorStop(0, "cyan");
+        gradient.addColorStop(1, "white");
+        break;
+      case "Prismatic":
+        gradient.addColorStop((gradientShift + 0) % 1, "red");
+        gradient.addColorStop((gradientShift + 0.2) % 1, "orange");
+        gradient.addColorStop((gradientShift + 0.4) % 1, "yellow");
+        gradient.addColorStop((gradientShift + 0.6) % 1, "green");
+        gradient.addColorStop((gradientShift + 0.8) % 1, "blue");
+        gradient.addColorStop((gradientShift + 1.0) % 1, "violet");
+        break;
+      case "Transcendent":
+        gradient.addColorStop(0, "gold");
+        gradient.addColorStop(1, "white");
+        break;
+      case "Universal":
+        gradient.addColorStop(0, "black");
+        gradient.addColorStop(1, "white");
+        break;
+      case "Secret":
+        gradient.addColorStop(0, "red");
+        gradient.addColorStop(1, "blue");
+        break;
+    }
+
+
+
+
+    fillStyle = gradient;
+  }
+
+
+
+
+  ctx.shadowColor = soul.color;
+  ctx.shadowBlur = 30;
+  drawPixelHeart(canvas.width / 2, canvas.height / 2 - 60, 160, fillStyle, soul.isBad);
+  ctx.restore();
+
+
+
+
+  // Text info
+  ctx.fillStyle = soul.color;
+  ctx.font = "28px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(soul.name, canvas.width / 2, canvas.height / 2 + 70);
+  ctx.font = "16px monospace";
+  ctx.fillStyle = "white";
+  ctx.fillText("Rarity: " + soul.rarity, canvas.width / 2, canvas.height / 2 + 100);
+  ctx.fillStyle = "lightgray";
+  ctx.fillText("“" + soul.quote + "”", canvas.width / 2, canvas.height / 2 + 125);
+  ctx.fillText("Rolled at: " + soul.timestamp, canvas.width / 2, canvas.height / 2 + 150);
+}
+
+
+
+
+function animateRoll() {
+const now = Date.now();
+if (now - lastRollTime < rollCooldown) {
+  console.log("Still cooling down...");
+  return; // block if cooldown not done
+}
+lastRollTime = now;
+  if (isRolling) return;
+if (!hasRolled) {
+  document.getElementById("rollHint").style.display = "none";
+  hasRolled = true;
+}
+  isRolling = true;
+
+
+
+
+  const startTime = performance.now();
+  const rollDuration = 1000;
+
+
+
+
+  function drawFrame(now) {
+    const elapsed = now - startTime;
+
+
+
+
+    const color = `hsl(${Math.random() * 360}, 100%, 70%)`;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawPixelHeart(canvas.width / 2, canvas.height / 2 - 60, 160, color);
+    ctx.fillStyle = "white";
+    ctx.font = "28px monospace";
+    ctx.fillText("Rolling...", canvas.width / 2, canvas.height / 2 + 70);
+
+
+
+
+    if (elapsed < rollDuration) {
+      requestAnimationFrame(drawFrame);
+    } else {
+      try {
+        const finalSoul = getRandomSoul();
+        drawSoul(finalSoul);
+        addToInventory(finalSoul);
+      } catch (e) {
+        console.error("Error during roll:", e);
+      } finally {
+        isRolling = false;
+        console.log("Rolling ended");
+      }
+    }
+  }
+
+
+
+
+  console.log("Rolling started");
+  requestAnimationFrame(drawFrame);
+}
+
+
+
+
+function addToInventory(soul) {
+  if (inventory.length >= maxInventorySlots) {
+    alert("Inventory full. Please delete or upgrade slots.");
+    return;
+  }
+  inventory.push(soul);
+  seenSouls[soul.name + "-" + soul.rarity] = true;
+  renderInventory();
+}
+
+
+
+
+function switchInventoryTab(tab) {
+  const soulTab = document.getElementById("soulInventoryTab");
+  const itemTab = document.getElementById("itemInventoryTab");
+
+
+
+
+  const soulsBtn = document.getElementById("soulsTabBtn");
+  const itemsBtn = document.getElementById("itemsTabBtn");
+
+
+
+
+  if (tab === 'souls') {
+    soulTab.style.display = "block";
+    itemTab.style.display = "none";
+    soulsBtn.style.background = "#444";
+    itemsBtn.style.background = "#222";
+  } else {
+    soulTab.style.display = "none";
+    itemTab.style.display = "block";
+    soulsBtn.style.background = "#222";
+    itemsBtn.style.background = "#444";
+  }
+}
+
+
+
+
+function toggleSoulIndex() {
+  const index = document.getElementById("soulIndex");
+  if (index.style.display === "block") {
+    index.style.display = "none";
+  } else {
+    renderSoulIndex(); // Always rerender when opening
+  }
+}
+
+
+
+
+function renderSoulIndex() {
+  const index = document.getElementById("soulIndex");
+  index.innerHTML = "";
+  index.style.display = "block";
+  index.style.position = "fixed";
+  index.style.top = "50%";
+  index.style.left = "50%";
+  index.style.transform = "translate(-50%, -50%)";
+  index.style.width = "90%";
+  index.style.maxWidth = "800px";
+  index.style.maxHeight = "80%";
+  index.style.background = "#111";
+  index.style.border = "2px solid white";
+  index.style.padding = "20px";
+  index.style.overflowY = "auto";
+  index.style.zIndex = "1000";
+  index.style.borderRadius = "10px";
+  index.style.boxShadow = "0 0 20px rgba(255,255,255,0.3)";
+
+
+
+
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "✖ Close";
+  closeBtn.onclick = () => index.style.display = "none";
+  closeBtn.style.background = "#222";
+  closeBtn.style.color = "white";
+  closeBtn.style.padding = "6px 12px";
+  closeBtn.style.border = "none";
+  closeBtn.style.borderRadius = "5px";
+  closeBtn.style.cursor = "pointer";
+  closeBtn.style.float = "right";
+  index.appendChild(closeBtn);
+
+
+
+
+  let foundSouls = 0;
+  let totalSouls = 0;
+
+
+
+
+  const container = document.createElement("div");
+  container.style.display = "flex";
+  container.style.flexWrap = "wrap";
+  container.style.gap = "8px";
+
+
+
+
+  for (const rarity of rarities) {
+    const souls = soulMap[rarity.name];
+    if (!souls) continue;
+
+
+
+
+    const allSouls = [...souls.good, ...souls.bad];
+    totalSouls += allSouls.length;
+
+
+
+
+    for (const soul of allSouls) {
+      const soulKey = soul.name + "-" + rarity.name;
+      const isSeen = seenSouls[soulKey];
+      if (isSeen) foundSouls++;
+
+
+
+
+      const soulEl = document.createElement("div");
+      soulEl.textContent = `${soul.name}\n(${rarity.name})`;
+      soulEl.style.background = rarity.color || "#333";
+      soulEl.style.padding = "8px";
+      soulEl.style.borderRadius = "6px";
+      soulEl.style.fontSize = "12px";
+      soulEl.style.textAlign = "center";
+      soulEl.style.whiteSpace = "pre-line";
+      soulEl.style.width = "100px";
+      soulEl.style.border = isSeen ? "2px solid #0f0" : "1px solid gray";
+      soulEl.style.opacity = isSeen ? "1" : "0.3";
+      container.appendChild(soulEl);
+    }
+  }
+
+
+
+
+  const summary = document.createElement("div");
+  summary.innerHTML = `<strong>Souls Found:</strong> ${foundSouls} / ${totalSouls}`;
+  summary.style.marginBottom = "16px";
+  summary.style.fontSize = "16px";
+  summary.style.color = "lightgray";
+
+
+
+
+  index.appendChild(summary);
+  index.appendChild(container);
+}
+
+
+
+
+document.addEventListener("keydown", e => {
+  if (e.code === "Space") animateRoll();
+});
+
+
+
+
+// --- SHOP CONFIG ---
+const shopItems = [
+  // Common
+  { name: "Luck Charm", rarity: "Common", effect: "Luck +0.1x", chance: 25, duration: 60 },
+  { name: "Rusty Coin", rarity: "Common", effect: "+10% coin gain", chance: 25, duration: 60 },
+
+
+
+
+  // Uncommon
+  { name: "Lucky Clover", rarity: "Uncommon", effect: "Luck +0.2x", chance: 12.5, duration: 180 },
+  { name: "Speed Sand", rarity: "Uncommon", effect: "Roll Speed 1.2x", chance: 12.5, duration: 180 },
+
+
+
+
+  // Rare
+  { name: "Shiny Amulet", rarity: "Rare", effect: "Luck +0.3x", chance: 7.5, duration: 300 },
+  { name: "Coin Pouch", rarity: "Rare", effect: "+25% coin gain", chance: 7.5, duration: 300 },
+
+
+
+
+  // Epic
+  { name: "Enchanted Dice", rarity: "Epic", effect: "Luck +0.5x", chance: 2.5, duration: 600 },
+  { name: "Golden Hourglass", rarity: "Epic", effect: "Roll Speed 1.5x", chance: 2.5, duration: 600 },
+
+
+
+
+  // Legendary
+  { name: "Dragon Fang", rarity: "Legendary", effect: "Luck +1.0x", chance: 1, duration: 1200 },
+  { name: "Treasure Map", rarity: "Legendary", effect: "+50% coin gain", chance: 1, duration: 1200 },
+
+
+
+
+  // Mythic
+  { name: "Phoenix Feather", rarity: "Mythic", effect: "Luck +1.5x", chance: 0.5, duration: 1800 },
+  { name: "Crown of Gold", rarity: "Mythic", effect: "x2 coin gain", chance: 0.5, duration: 1800 },
+
+
+
+
+  // Celestial
+  { name: "Star Fragment", rarity: "Celestial", effect: "Luck +2.0x", chance: 0.25, duration: 2400 },
+  { name: "Cosmic Coin", rarity: "Celestial", effect: "x3 coin gain", chance: 0.25, duration: 2400 },
+
+
+
+
+  // Prismatic
+  { name: "Rainbow Essence", rarity: "Prismatic", effect: "Luck +3.0x", chance: 0.15, duration: 3000 },
+  { name: "Mirror of Fortune", rarity: "Prismatic", effect: "x4 coin gain", chance: 0.15, duration: 3000 },
+
+
+
+
+  // Transcendent
+  { name: "Eternal Sigil", rarity: "Transcendent", effect: "Luck +5.0x", chance: 0.05, duration: 3600 },
+  { name: "Infinity Coin", rarity: "Transcendent", effect: "x5 coin gain", chance: 0.05, duration: 3600 },
+
+
+
+
+  // Universal
+  { name: "Core of Creation", rarity: "Universal", effect: "Luck +10x", chance: 0.045, duration: 4800 },
+  { name: "Bank of Eternity", rarity: "Universal", effect: "x10 coin gain", chance: 0.045, duration: 4800 },
+
+
+
+
+  // Secret
+  { name: "True Balance", rarity: "Secret", effect: "Luck +20x", chance: 0.005, duration: 6000 },
+  { name: "Omega Coin", rarity: "Secret", effect: "x20 coin gain", chance: 0.005, duration: 6000 }
+];
+
+
+
+
+const rarityChances = {
+  Common: 100,
+  Uncommon: 50,
+  Rare: 30,
+  Epic: 10,
+  Legendary: 5,
+  Mythic: 2,
+  Celestial: 1,
+  Prismatic: 0.6,
+  Transcendent: 0.2,
+  Universal: 0.1,
+  Secret: 0.02
+};
+
+
+
+
+let shopInventory = [];
+let shopResetTime = 5 * 60;
+
+
+
+
+let playerBoosts = {
+  luck: 1.0,
+  speed: 1.0,
+  auto: false
+};
+
+
+
+
+function getBoostDuration(rarity) {
+  switch (rarity) {
+    case "Common": return 60 * 1000;
+    case "Uncommon": return 3 * 60 * 1000;
+    case "Rare": return 5 * 60 * 1000;
+    case "Epic": return 10 * 60 * 1000;
+    case "Legendary": return 20 * 60 * 1000;
+    case "Mythic": return 40 * 60 * 1000;
+    case "Celestial": return 60 * 60 * 1000;
+    case "Prismatic": return 60 * 60 * 1000;
+    case "Transcendent": return 40 * 60 * 1000;
+    case "Universal": return 40 * 60 * 1000;
+    case "Secret": return 60 * 60 * 1000;
+      return (20 + Math.floor(Math.random() * 21)) * 60 * 1000;
+    default: return 60 * 1000;
+  }
+}
+
+
+
+
+function getItemCost(rarity) {
+  switch (rarity) {
+    case "Common": return 200;
+    case "Uncommon": return 500;
+    case "Rare": return 1000;
+    case "Epic": return 2500;
+    case "Legendary": return 5000;
+    case "Mythic": return 10000;
+    case "Celestial": return 15000;
+    case "Prismatic": return 20000;
+    case "Transcendent": return 30000;
+    case "Universal": return 50000;
+    case "Secret": return 100000;
+    default: return 1000;
+  }
+}
+
+
+
+
+function generateShopInventory() {
+  shopInventory = [];
+  shopItems.forEach(item => {
+    const chance = rarityChances[item.rarity] * 2;
+    const roll = Math.random() * 100;
+    const inStock = roll <= chance;
+
+
+
+
+    let stock = 0;
+    if (inStock) {
+      if (item.rarity === "Common") stock = Math.floor(Math.random() * 4) + 3;
+      else if (item.rarity === "Uncommon") stock = Math.floor(Math.random() * 3) + 2;
+      else stock = 1;
+    }
+
+
+
+
+    shopInventory.push({
+      ...item,
+      stock,
+      inStock,
+      cost: getItemCost(item.rarity)
+    });
+  });
+}
+
+
+
+
+function renderShop() {
+  const container = document.getElementById("shopItemsContainer");
+  if (!container) return;
+  container.innerHTML = ""; // clear old items
+
+
+
+
+  shopInventory.forEach(item => {
+    const el = document.createElement("div");
+    el.style.padding = "10px";
+    el.style.marginBottom = "10px";
+    el.style.border = "1px solid #555";
+    el.style.borderRadius = "8px";
+    el.style.background = "#222";
+
+
+
+
+    el.innerHTML = `
+      <div style="font-weight:bold; color:${
+        item.rarity === 'Common' ? 'gray' : 
+        item.rarity === 'Uncommon' ? 'green' : 
+        item.rarity === 'Rare' ? 'blue' : 
+        item.rarity === 'Epic' ? 'purple' : 
+        item.rarity === 'Legendary' ? 'orange' : 
+        item.rarity === 'Mythic' ? 'red' : 
+        item.rarity === 'Celestial' ? 'cyan' : 
+        item.rarity === 'Prismatic' ? 'magenta' : 
+        item.rarity === 'Transcendent' ? 'gold' : 
+        item.rarity === 'Universal' ? 'white' : 
+        item.rarity === 'Secret' ? 'black' : 'white'
+      }">
+        ${item.name}
+      </div>
+      <div style="font-size:12px; color:lightgray;">${item.effect}</div>
+      <div style="font-size:12px;">Rarity: ${item.rarity}</div>
+      <div style="font-size:12px;">Chance: ${(rarityChances[item.rarity] * 2).toFixed(1)}%</div>
+      <div style="font-size:12px;">${item.inStock ? `In Stock: ${item.stock}` : "❌ No Stock"}</div>
+    `;
+
+
+
+
+    if (item.inStock) {
+      const buyBtn = document.createElement("button");
+      buyBtn.textContent = `Buy (${item.cost}💰)`;
+      buyBtn.style.marginTop = "5px";
+      buyBtn.style.padding = "4px 8px";
+      buyBtn.style.background = "#2ecc71";
+      buyBtn.style.color = "white";
+      buyBtn.style.border = "none";
+      buyBtn.style.borderRadius = "5px";
+      buyBtn.style.cursor = "pointer";
+      buyBtn.onclick = () => buyItem(item);
+      el.appendChild(buyBtn);
+    }
+
+
+
+
+    container.appendChild(el); // ✅ append to container
+  });
+}
+
+
+
+
+function applyTimedBoost(type, multiplier, durationMs) {
+  playerBoosts[type] *= multiplier;
+  updateBoostStatus();
+
+
+
+
+  setTimeout(() => {
+    playerBoosts[type] /= multiplier;
+    updateBoostStatus();
+  }, durationMs);
+}
+
+
+
+
+function buyItem(item) {
+  if (money >= item.cost) {
+    money -= item.cost;
+item.stock--;
+if (item.stock <= 0) item.inStock = false;
+renderShop(); // Re-render shop after update
+
+
+
+
+    // Add to item inventory instead of using immediately
+    itemInventory.push({
+  name: item.name,
+  rarity: item.rarity,
+  effectType: item.effectType,
+  effectValue: item.effectValue,
+  duration: getBoostDuration(item.rarity),
+  description: item.effect
+});
+
+
+
+
+     
+    updateItemInventory();   // ⬅️ You'll need this function
+  }
+}
+
+
+
+
+function updateItemInventory() {
+  const container = document.getElementById("itemInventoryList");
+  if (!container) return;
+  container.innerHTML = "";
+
+
+
+
+  if (itemInventory.length === 0) {
+    container.innerHTML = "<p>No items yet.</p>";
+    return;
+  }
+
+
+
+
+  // Group items by name + rarity
+  const grouped = {};
+  itemInventory.forEach((item, i) => {
+    const key = item.name + "-" + item.rarity;
+    if (!grouped[key]) {
+      grouped[key] = { ...item, count: 0, indices: [] };
+    }
+    grouped[key].count++;
+    grouped[key].indices.push(i); // keep track of original indices
+  });
+
+
+
+
+  // Render each unique group
+  Object.values(grouped).forEach(item => {
+    const div = document.createElement("div");
+    div.style.marginBottom = "10px";
+    div.style.padding = "10px";
+    div.style.border = "1px solid white";
+    div.style.borderRadius = "8px";
+    div.style.background = "#222";
+
+
+
+
+    div.innerHTML = `
+      <strong>${item.name} x${item.count}</strong><br>
+      <span>Rarity: ${item.rarity}</span><br>
+      <span>Effect: ${item.effect}</span><br>
+      <span>Duration: ${item.duration ? Math.round(item.duration / 60000) + " min" : "Instant"}</span><br><br>
+    `;
+
+
+
+
+    // ✅ Add use button for stack
+    const useBtn = document.createElement("button");
+    useBtn.textContent = "Use One";
+    useBtn.style.background = "#2ecc71";
+    useBtn.style.color = "white";
+    useBtn.style.border = "none";
+    useBtn.style.padding = "4px 8px";
+    useBtn.style.borderRadius = "5px";
+    useBtn.style.cursor = "pointer";
+
+
+
+
+    useBtn.onclick = () => {
+      // Remove one instance from the real inventory
+      const indexToRemove = item.indices.pop();
+      if (indexToRemove !== undefined) {
+        itemInventory.splice(indexToRemove, 1);
+      }
+
+
+
+
+      // Apply effect (your existing logic)
+      useItem(item);
+
+
+
+
+      // Re-render inventory
+      updateItemInventory();
+    };
+
+
+
+
+    div.appendChild(useBtn);
+    container.appendChild(div);
+  });
+}
+
+
+
+
+function useItem(item) {
+  applyItemEffect(item);  // actually apply the boost
+}
+
+
+
+
+function updateShopTimerDisplay() {
+  const timerEl = document.getElementById("shopTimer");
+  const minutes = Math.floor(shopResetTime / 60);
+  const seconds = shopResetTime % 60;
+  if (timerEl) timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+
+
+
+setInterval(() => {
+  shopResetTime--;
+  if (shopResetTime <= 0) {
+    generateShopInventory();
+    renderShop();
+    shopResetTime = 5 * 60;
+  }
+  updateShopTimerDisplay();
+}, 1000);
+
+
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  generateShopInventory();
+  renderShop();
+});
+
+
+
+
+function toggleShop() {
+  const shop = document.getElementById("shopSidebar");
+  shop.style.display = (shop.style.display === "none" || shop.style.display === "") ? "block" : "none";
+}
+
+
+
+
+function updateBoostStatus() {
+  const boostEl = document.getElementById("boostStatus");
+  if (!boostEl) return;
+  const luck = playerBoosts.luck.toFixed(1);
+  const speed = playerBoosts.speed.toFixed(2);
+  const auto = playerBoosts.auto ? "ON" : "OFF";
+
+
+
+
+  boostEl.textContent = `Luck: ${luck}x | Speed: ${speed}x | Auto: ${auto}`;
+}
+
+
+
+
+function applyItemEffect(item) {
+  const duration = getBoostDuration(item.rarity);
+
+
+
+
+  if (item.effectType === "luck" || item.effectType === "speed") {
+    applyTimedBoost(item.effectType, item.effectValue, duration);
+  } else if (item.effectType === "auto") {
+    playerBoosts.auto = true;
+    updateBoostStatus();
+    setTimeout(() => {
+      playerBoosts.auto = false;
+      updateBoostStatus();
+    }, duration);
+  }
+}
+
+
+
+
+function getSoulIncome(soul) {
+  return getCoinValue(soul.rarity) / 50;
+}
+
+
+
+
+function startPassiveIncome() {
+  setInterval(() => {
+    let income = 0;
+    inventory.forEach(soul => {
+      income += getSoulIncome(soul);
+    });
+    money += income;
+    updateCoinCounter();
+  }, 1000); // every second
+}
+
+
+
+
+function generateSaveData() {
+  const saveData = {
+  money,
+  inventory,
+  itemInventory,
+  seenSouls,
+  maxInventorySlots,
+  slotUpgradeLevel
+  };
+
+
+
+
+  // Convert → JSON
+  let json = JSON.stringify(saveData);
+
+
+
+
+  // Add random salt
+  const salt = Math.random().toString(36).substring(2, 15);
+  json = salt + "|" + json + "|" + salt.split("").reverse().join("");
+
+
+
+
+  // Encode base64
+  let encoded = btoa(json);
+
+
+
+
+  // Wrap with fake header/footer
+  return "SOULSAVEv1::" + encoded + "::ENDSOULSAVE";
+}
+
+
+
+
+function parseSaveData(data) {
+  try {
+    if (!data.startsWith("SOULSAVEv1::") || !data.endsWith("::ENDSOULSAVE")) {
+      throw new Error("Invalid save format!");
+    }
+
+
+
+
+    // Remove wrappers
+    let encoded = data.replace("SOULSAVEv1::", "").replace("::ENDSOULSAVE", "");
+    let decoded = atob(encoded);
+
+
+
+
+    // Remove salt
+    let parts = decoded.split("|");
+    if (parts.length < 3) throw new Error("Invalid save data.");
+    let json = parts[1];
+
+
+
+
+    return JSON.parse(json);
+  } catch (err) {
+    alert("Failed to load save: " + err.message);
+    return null;
+  }
+}
+
+
+
+
+function downloadSave() {
+  const data = generateSaveData();
+  const blob = new Blob([data], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+
+
+
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "souls_save.dat";
+  a.click();
+
+
+
+
+  URL.revokeObjectURL(url);
+}
+
+
+
+
+function importSave(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+
+
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const content = e.target.result;
+    const save = parseSaveData(content);
+    if (save) {
+      money = save.money || 0;
+      inventory = save.inventory || [];
+      itemInventory = save.itemInventory || {};
+      seenSouls = save.seenSouls || {};
+      maxInventorySlots = data.maxInventorySlots || 10;
+      slotUpgradeLevel = data.slotUpgradeLevel || 0;
+     
+
+
+
+
+
+
+
+
+      updateUpgradeUI();
+      updateCoinDisplay();
+      renderInventory();
+      renderSoulIndex();
+      renderItemInventory();
+      alert("Save loaded successfully!");
+    }
+  };
+  reader.readAsText(file);
+}
+
+
+
+
+function getUpgradeCost() {
+  if (slotUpgradeLevel < 10) {
+    return (slotUpgradeLevel + 1) * 100;
+  } else {
+    return Math.pow(2, Math.floor(slotUpgradeLevel / 10)) * (slotUpgradeLevel % 10 + 1) * 100;
+  }
+}
+
+
+
+
+function upgradeSlots() {
+  const cost = getUpgradeCost();
+  if (money < cost) {
+    alert("Not enough coins!");
+    return;
+  }
+  money -= cost;
+  slotUpgradeLevel++;
+  maxInventorySlots++;
+  updateUpgradeUI();
+}
+
+
+
+
+function updateUpgradeUI() {
+  const cost = getUpgradeCost();
+  document.getElementById("upgradeBtn").textContent = `Upgrade Slots (Cost: ${cost}💰)`;
+  document.getElementById("upgradeInfo").textContent = `Current Slots: ${maxInventorySlots}`;
+document.getElementById("upgradeBtn").onclick = upgradeSlots;
+}
+
+
+function autoSave() {
+  try {
+    const data = generateSaveData();
+    localStorage.setItem("soulsSave", data);
+    console.log("Game auto-saved!");
+  } catch (e) {
+    console.error("Auto-save failed:", e);
+  }
+}
+
+
+function autoLoad() {
+  try {
+    const data = localStorage.getItem("soulsSave");
+    if (!data) return;
+
+
+    const save = parseSaveData(data);
+    if (save) {
+      money = save.money || 0;
+      inventory = save.inventory || [];
+      itemInventory = save.itemInventory || [];
+      seenSouls = save.seenSouls || {};
+      maxInventorySlots = save.maxInventorySlots || 10;
+      slotUpgradeLevel = save.slotUpgradeLevel || 0;
+
+
+      updateUpgradeUI();
+      updateCoinCounter();
+      renderInventory();
+      renderSoulIndex();
+      updateItemInventory();
+
+
+      console.log("Game auto-loaded!");
+    }
+  } catch (e) {
+    console.error("Auto-load failed:", e);
+  }
+}
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  autoLoad();            // Load if there’s a save
+  generateShopInventory();
+  renderShop();
+
+
+  // Auto-save every 30 seconds
+  setInterval(autoSave, 30000);
+});
+
+
+startPassiveIncome();
+
+
+
+
+</script>
+</body>
+</html>
