@@ -1,0 +1,2528 @@
+﻿<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Undertale RNG</title>
+  <style>
+    body { background: black; color: white; font-family: sans-serif; margin: 0; overflow: hidden; }
+    canvas { display: block; margin: 100px auto 40px auto; width: 400px; height: 400px; }
+    #inventoryToggle, #indexToggle, #shopResetTime { bottom: 0; left: 50%; transform: translateX(-50%); }
+    #indexToggle { bottom: 20px; left: 20px; }
+  </style>
+</head>
+<body>
+<div id="coinCounter" style="
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111;
+  color: #0f0;
+  padding: 6px 12px;
+  border: 1px solid white;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 16px;
+  z-index: 1000;
+">
+  💰 Coins: 0
+</div>
+<div id="rollHint" style="
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -200%);
+  color: white;
+  font-size: 18px;
+  font-family: monospace;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 1px solid white;
+  z-index: 1000;
+">
+  ␣ Press Space to Roll
+</div>
+<div id="overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index: 900;"></div>
+ <button id="indexToggle" onclick="toggleSoulIndex()" style="
+  position: fixed;
+  bottom: 20px;
+  left: 56px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #222;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1000;
+">🧠 Soul Index</button>
+
+
+
+
+  <button id="saveBtn" onclick="downloadSave()" style="
+  position: fixed;
+  bottom: 60px;
+  right: 20px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #222;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1000;
+">💾 Save</button>
+
+
+
+
+<input type="file" id="loadFile" style="display:none" onchange="importSave(event)">
+<button id="loadBtn" onclick="document.getElementById('loadFile').click()" style="
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #222;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1000;
+">📂 Load</button>
+
+
+
+
+<button id="settingsBtn" onclick="toggleSettings()" style="
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #222;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1000;
+">⚙️ Settings</button>
+
+
+
+
+<button id="inventoryToggle" onclick="toggleInventory()" style="
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  font-size: 14px;
+  background: #222;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1000;
+">📦 Inventory</button>
+<button id="autoRollToggle" style="   position: fixed;   bottom: 60px; /* 40px above Soul Index */   left: 6px;   padding: 6px 10px;   font-size: 12px;   background: #222;   color: white;   border-radius: 5px;   cursor: pointer;   z-index: 1000; ">   Start Auto Roll </button>
+  <canvas id="gameCanvas" width="450" height="450"></canvas>
+  <div id="inventory" style="display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+width: 90%; max-width: 600px; max-height: 80%; background: #111; color: white; border: 2px solid white; padding: 20px; overflow-y: auto; z-index: 1000; border-radius: 10px; box-shadow: 0 0 20px rgba(255,255,255,0.3);">
+  <div style="text-align: right; margin-bottom: 10px;">
+    <button onclick="toggleInventory()" style="background: #222; color: white; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer;">✖ Close</button>
+  </div>
+  <!-- Tabs -->
+  <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px;">
+    <button onclick="switchInventoryTab('souls')" id="soulsTabBtn" style="padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; background: #444; color: white;">🧠 Souls</button>
+    <button onclick="switchInventoryTab('items')" id="itemsTabBtn" style="padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; background: #222; color: white;">🧰 Items</button>
+  </div>
+  <!-- Soul Content -->
+  <div id="soulInventoryTab">
+    <div id="inventoryList"></div>
+  </div>
+  <!-- Item Content -->
+  <div id="itemInventoryTab" style="display: none;">
+    <div id="itemInventoryList"><p>No items yet.</p></div>
+  </div>
+</div>
+  <div id="soulIndex" style="display:none;"></div>
+  <div id="replacePopup" style="display:none;"></div>
+<div id="settingsModal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
+background:#111; padding:20px; border:2px solid white; border-radius:10px; z-index:1000; width:320px; max-height:80%; overflow-y:auto; color:white;">
+  <h3>Auto-Skip Settings</h3>
+  <p>Select rarities to skip during rolls:</p>
+  <div id="skipRarityList"></div>
+  <hr style="margin:10px 0; border:1px solid #333;">
+
+
+  <h3>Background Settings</h3>
+  <label>Background Color: <input type="color" id="bgColorPicker" value="#000000"></label><br><br>
+  
+  <label>Background Image: <input type="file" id="bgImageUpload" accept="image/*"></label><br><br>
+  <button onclick="clearBackgroundImage()">Remove Background Image</button>
+
+
+<hr style="margin:10px 0; border:1px solid #333;">
+<button onclick="resetAllData()" style="background:#900; color:white; padding:6px 12px; border:none; border-radius:5px; cursor:pointer; width:100%;">
+  🔄 Reset All Data
+</button>
+
+
+  <br><br>
+  <button onclick="toggleSettings()">✖ Close</button>
+</div>
+<div id="shopSidebar" style="
+  display: none;
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 300px;
+  height: 100%;
+  background: #111;
+  border-left: 2px solid white;
+  padding: 20px;
+  color: white;
+  overflow-y: auto;
+  z-index: 999;
+  box-shadow: -5px 0 10px rgba(255,255,255,0.2);
+">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2 style="margin: 0; font-size: 20px;">🛒 Shop</h2>
+    <button onclick="toggleShop()" style="background: #222; color: white; border: none; padding: 4px 10px; border-radius: 5px; cursor: pointer;">✖</button>
+  </div>
+  <p id="shopResetTimer" style="color: #aaa; margin-top: 5px;">⏳ Reset in: 05:00</p>
+  <hr style="border: 1px solid #333; margin: 10px 0;">
+  <div id="shopItemsContainer"></div>
+</div>
+<button onclick="toggleShop()" style="
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #222;
+  color: white;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 1000;
+">🛍️ Open Shop</button>
+<div id="boostStatus" style="position: fixed; top: 47px; left: 50%; transform: translateX(-50%);
+  background: #111; color: #0f0; padding: 6px 12px; border-radius: 6px; font-size: 14px; z-index: 999;">
+  Luck: 1.0x | Speed: 1.0x |Coin:1.0x
+</div>
+
+
+
+
+  <script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+  let isRolling = false;
+ let money = 0;
+let itemInventory = [];
+let hasRolled = false;
+let rollCooldown = 2000; // 2 seconds base cooldown
+let lastRollTime = 0;
+let maxInventorySlots = 10;  // default starting slots
+let slotUpgradeLevel = 0;    // how many times upgraded
+let autoRollTime = 0; // in seconds
+const MAX_AUTO_TIME = 43200; // 12 hours
+let skipSettings = {
+  "Common": false,
+  "Uncommon": false,
+  "Rare": false,
+  "Epic": false,
+  "Legendary": false,
+  "Mythic": false,
+  "Celestial": false,
+  "Prismatic": false,
+  "Secret": false
+};
+
+
+let autoRollActive = false;
+
+
+document.getElementById("autoRollToggle").addEventListener("click", () => {
+  if (autoRollTime <= 0) {
+    alert("⏳ You need Auto Roll Time before starting!");
+    return;
+  }
+  autoRollActive = !autoRollActive;
+  document.getElementById("autoRollToggle").textContent =
+    autoRollActive ? "Stop Auto Roll" : "Start Auto Roll";
+});
+
+
+function renderSkipSettings() {
+  const list = document.getElementById("skipRarityList");
+  list.innerHTML = "";
+
+
+
+
+  rarities.forEach(r => {
+    const label = document.createElement("label");
+    label.style.display = "block";
+    label.style.marginBottom = "6px";
+
+
+
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = skipSettings[r.name];
+    checkbox.onchange = () => {
+      skipSettings[r.name] = checkbox.checked;
+    };
+
+
+
+
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(" " + r.name));
+    list.appendChild(label);
+  });
+}
+
+
+
+
+function toggleSettings() {
+  const modal = document.getElementById("settingsModal");
+  modal.style.display = modal.style.display === "block" ? "none" : "block";
+  renderSkipSettings();
+}
+
+
+function getSoulIncome(soul) {
+  // Example: base coin value per rarity
+  const base = getCoinValue(soul.rarity);
+  // If "bad" souls earn less, adjust here:
+  return soul.isBad ? Math.floor(base * 0.5) : base;
+}
+
+
+function updateCoinCounter() {
+  let baseIncome = 0;
+  inventory.forEach(soul => {
+    baseIncome += getSoulIncome(soul);
+  });
+
+
+  const coinMult = Number.isFinite(playerBoosts.coin) ? playerBoosts.coin : 1.0;
+  const boostedIncome = baseIncome * coinMult;
+
+
+  document.getElementById("coinCounter").innerText =
+    "💰 Coins: " + formatMoney(money) +
+    " (+" + boostedIncome.toFixed(2) + "/sec)";
+}
+
+
+function formatMoney(value) {
+  if (value >= 1e12) return (value / 1e12).toFixed(2) + "Tril";   // Trillion
+  if (value >= 1e9)  return (value / 1e9).toFixed(2) + "Bil";    // Billion
+  if (value >= 1e6)  return (value / 1e6).toFixed(2) + "Mil";    // Million
+  if (value >= 1e3)  return (value / 1e3).toFixed(2) + "K";    // Million
+  return value.toLocaleString(); // Normal formatting below 1M
+}
+ 
+function toggleInventory() {
+  const inventoryDiv = document.getElementById("inventory");
+  const overlay = document.getElementById("overlay");
+
+
+
+
+  const isVisible = inventoryDiv.style.display === "block";
+  inventoryDiv.style.display = isVisible ? "none" : "block";
+  overlay.style.display = isVisible ? "none" : "block";
+
+
+
+
+  if (!isVisible) {
+    renderInventory();
+    switchInventoryTab('souls');  // 👈 Make sure this line is included
+  }
+}
+
+
+
+
+function renderInventory() {
+  const container = document.getElementById("inventoryList");
+  container.innerHTML = "";
+
+
+
+
+  if (inventory.length === 0) {
+    container.innerHTML = "<p>No souls collected yet.</p>";
+  } else {
+    inventory.forEach((soul, index) => {
+      const div = document.createElement("div");
+      div.style.marginBottom = "10px";
+      div.style.padding = "10px";
+      div.style.border = "1px solid white";
+      div.style.borderRadius = "8px";
+      div.style.background = "#222";
+      div.style.position = "relative";
+
+
+
+
+      div.innerHTML = `
+        <strong style="color:${soul.color}">${soul.name}</strong> 
+        ${soul.locked ? '🔒' : ''}<br>
+        <span>Rarity: ${soul.rarity}</span><br>
+        <span>Rolled at: ${soul.timestamp}</span><br>
+        <span style="font-style: italic;">"${soul.quote}"</span><br><br>
+        <span>Income: +${getSoulIncome(soul)} / sec</span><br>
+      `;
+
+
+
+
+      // Lock Button
+      const lockBtn = document.createElement("button");
+      lockBtn.textContent = soul.locked ? "🔓 Unlock" : "🔒 Lock";
+      lockBtn.style.marginRight = "10px";
+      lockBtn.style.background = "#444";
+      lockBtn.style.color = "white";
+      lockBtn.style.border = "none";
+      lockBtn.style.padding = "4px 10px";
+      lockBtn.style.borderRadius = "5px";
+      lockBtn.style.cursor = "pointer";
+      lockBtn.onclick = () => {
+        soul.locked = !soul.locked;
+        renderInventory();
+      };
+
+
+
+
+      // Delete Button
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "🗑️ Delete";
+      deleteBtn.style.background = "#900";
+      deleteBtn.style.color = "white";
+      deleteBtn.style.border = "none";
+      deleteBtn.style.padding = "4px 10px";
+      deleteBtn.style.borderRadius = "5px";
+      deleteBtn.style.cursor = "pointer";
+      deleteBtn.onclick = () => {
+        if (soul.locked) {
+          alert("This soul is locked and cannot be deleted.");
+          return;
+        }
+        inventory.splice(index, 1);
+        renderInventory();
+      };
+
+
+
+
+      div.appendChild(lockBtn);
+      div.appendChild(deleteBtn);
+      container.appendChild(div);
+    });
+  }
+
+
+
+
+  // ✅ Always show upgrade section at the bottom
+  const upgradeSection = document.createElement("div");
+  upgradeSection.style.marginTop = "15px";
+  upgradeSection.style.textAlign = "center";
+
+
+
+
+  upgradeSection.innerHTML = `
+    <button id="upgradeBtn" 
+      style="background:#2ecc71; color:white; padding:6px 12px; border:none; border-radius:5px; cursor:pointer;">
+      Upgrade Slots (Cost: ${getUpgradeCost()}💰)
+    </button>
+    <div id="upgradeInfo" style="margin-top:5px; color:lightgray; font-size:12px;">
+      Current Slots: ${maxInventorySlots}
+    </div>
+  `;
+
+
+
+
+  container.appendChild(upgradeSection);
+
+
+
+
+  // Hook up upgrade button again
+  document.getElementById("upgradeBtn").onclick = upgradeSlots;
+}
+
+
+
+
+const rarities = [
+  { name: "Common", weight: 50.00, color: "gray" },
+  { name: "Uncommon", weight: 25.00, color: "green" },
+  { name: "Rare", weight: 15.00, color: "blue" },
+  { name: "Epic", weight: 5.00, color: "purple" },
+  { name: "Legendary", weight: 2.00, color: "orange" },
+  { name: "Mythic", weight: 1.00, color: "red" },
+  { name: "Celestial", weight: 0.50, color: "cyan" },
+  { name: "Prismatic", weight: 0.30, color: "magenta" },
+  { name: "Secret", weight: 0.01, color: "#ffe600" }
+];
+
+
+const soulMap = {
+  "Common": {
+    good: [
+      { name: "Kindness", color: "#27ae60", quote: "A smile can heal wounds." },
+      { name: "Patience", color: "#3498db", quote: "Waiting is a strength." },
+      { name: "Gratitude", color: "#f1c40f", quote: "Even little things matter." },
+      { name: "Honesty", color: "#2ecc71", quote: "The truth is light." },
+      { name: "Courage", color: "#e67e22", quote: "Stand tall in small steps." },
+      { name: "Friendship", color: "#16a085", quote: "Together, nothing fails." },
+      { name: "Generosity", color: "#f39c12", quote: "Giving is receiving." },
+      { name: "Calmness", color: "#2c3e50", quote: "Peace steadies the soul." },
+      { name: "Forgiveness", color: "#9b59b6", quote: "Let go to grow." },
+      { name: "Humility", color: "#e74c3c", quote: "Quiet strength speaks." },
+      { name: "Gentleness", color: "#f39c12", quote: "Soft touch, strong heart." },
+      { name: "Openness", color: "#1abc9c", quote: "I welcome all." },
+      { name: "Sincerity", color: "#3498db", quote: "Truth in words." },
+      { name: "Support", color: "#27ae60", quote: "I lift others." },
+      { name: "Optimism", color: "#f1c40f", quote: "Light shines ahead." },
+      { name: "Curiosity", color: "#8e44ad", quote: "Questions are keys." },
+      { name: "Playfulness", color: "#16a085", quote: "Laugh often." },
+      { name: "Compassion", color: "#2980b9", quote: "Feel for others." },
+      { name: "Balance", color: "#d35400", quote: "Harmony guides me." },
+      { name: "Patriotism", color: "#2ecc71", quote: "Serve the greater good." },
+      { name: "Diligence", color: "#e67e22", quote: "Work with care." },
+      { name: "Cheer", color: "#f39c12", quote: "Spread smiles." },
+      { name: "Innocence", color: "#9b59b6", quote: "Pure at heart." },
+      { name: "Hopefulness", color: "#27ae60", quote: "Tomorrow comes." },
+      { name: "Warmth", color: "#e74c3c", quote: "Kind words heal." },
+      { name: "Openness", color: "#1abc9c", quote: "No walls remain." },
+      { name: "Bravery", color: "#f1c40f", quote: "Face fears." },
+      { name: "Thoughtfulness", color: "#16a085", quote: "I consider others." },
+      { name: "Enthusiasm", color: "#2980b9", quote: "Energy ignites." },
+      { name: "Resilience", color: "#d35400", quote: "I rise again." },
+      { name: "Honour", color: "#2ecc71", quote: "Stand true." },
+      { name: "Liveliness", color: "#e67e22", quote: "Move with joy." },
+      { name: "Friendliness", color: "#f39c12", quote: "Reach out." },
+      { name: "Charity", color: "#3498db", quote: "Give freely." },
+      { name: "Positivity", color: "#9b59b6", quote: "See the good." },
+      { name: "Tolerance", color: "#27ae60", quote: "Accept all." },
+      { name: "Love", color: "#e74c3c", quote: "Heart open." },
+      { name: "Kindred", color: "#1abc9c", quote: "I belong with all." },
+      { name: "Generous", color: "#f1c40f", quote: "Share always." },
+      { name: "Gentle", color: "#16a085", quote: "Soft power." },
+      { name: "Reliable", color: "#2980b9", quote: "You can trust me." },
+      { name: "Faithful", color: "#d35400", quote: "Steadfast always." },
+      { name: "Caring", color: "#2ecc71", quote: "I nurture others." },
+      { name: "Friendly", color: "#e67e22", quote: "Kind words matter." },
+      { name: "Warmhearted", color: "#f39c12", quote: "Open arms." },
+      { name: "Gentility", color: "#3498db", quote: "Polite and kind." },
+      { name: "Benevolence", color: "#9b59b6", quote: "Good for all." },
+      { name: "Serenity", color: "#27ae60", quote: "Calm inside." },
+      { name: "Goodwill", color: "#e74c3c", quote: "I wish well." },
+      { name: "Mercy", color: "#1abc9c", quote: "Forgive freely." }
+    ],
+    bad: [
+      { name: "Apathy", color: "#7f8c8d", quote: "Why care at all?" },
+      { name: "Neglect", color: "#95a5a6", quote: "Forgotten without regret." },
+      { name: "Laziness", color: "#34495e", quote: "Tomorrow will do." },
+      { name: "Gossip", color: "#9b59b6", quote: "Words can cut deeper than steel." },
+      { name: "Selfishness", color: "#c0392b", quote: "Mine, not yours." },
+      { name: "Pettiness", color: "#7f8c8d", quote: "Small minds make small wars." },
+      { name: "Indifference", color: "#95a5a6", quote: "Nothing touches me." },
+      { name: "Obstinacy", color: "#34495e", quote: "I refuse to bend." },
+      { name: "Resentment", color: "#8e44ad", quote: "Old slights linger." },
+      { name: "Vanity", color: "#c0392b", quote: "All eyes should see me." },
+      { name: "Negativity", color: "#2c3e50", quote: "Everything is bleak." },
+      { name: "Cowardice", color: "#7f8c8d", quote: "Hide from all." },
+      { name: "Greed", color: "#8e44ad", quote: "I take endlessly." },
+      { name: "Envy", color: "#34495e", quote: "Wish I had more." },
+      { name: "Bitterness", color: "#c0392b", quote: "The past haunts me." },
+      { name: "Malice", color: "#7f8c8d", quote: "I enjoy pain." },
+      { name: "Deception", color: "#95a5a6", quote: "Trust is a lie." },
+      { name: "Arrogance", color: "#34495e", quote: "I am supreme." },
+      { name: "Spite", color: "#8e44ad", quote: "I hurt for fun." },
+      { name: "Hostility", color: "#c0392b", quote: "Enemies are many." },
+      { name: "Lust", color: "#2c3e50", quote: "Desire rules me." },
+      { name: "Obsession", color: "#7f8c8d", quote: "All else fades." },
+      { name: "Corruption", color: "#95a5a6", quote: "Rotting from inside." },
+      { name: "Jealousy", color: "#34495e", quote: "I want it all." },
+      { name: "Manipulation", color: "#8e44ad", quote: "I pull strings." },
+      { name: "Deceit", color: "#c0392b", quote: "Falsehoods win." },
+      { name: "Ruthlessness", color: "#7f8c8d", quote: "Mercy is weakness." },
+      { name: "Wrath", color: "#95a5a6", quote: "Burn with anger." },
+      { name: "Chaos", color: "#34495e", quote: "I break order." },
+      { name: "Treachery", color: "#8e44ad", quote: "I betray freely." },
+      { name: "Enmity", color: "#c0392b", quote: "I hold grudges." },
+      { name: "Folly", color: "#7f8c8d", quote: "I act without thought." },
+      { name: "Despair", color: "#95a5a6", quote: "Hope is dead." },
+      { name: "Greediness", color: "#34495e", quote: "Never enough." },
+      { name: "Malcontent", color: "#8e44ad", quote: "I am never pleased." },
+      { name: "Disdain", color: "#c0392b", quote: "All are beneath me." },
+      { name: "Contempt", color: "#7f8c8d", quote: "I scorn all." },
+      { name: "Depravity", color: "#95a5a6", quote: "I indulge vice." },
+      { name: "Blame", color: "#34495e", quote: "It’s never my fault." },
+      { name: "Revenge", color: "#8e44ad", quote: "Payback always." },
+      { name: "Negativity", color: "#c0392b", quote: "Nothing is good." },
+      { name: "Fierceness", color: "#7f8c8d", quote: "I strike first." },
+      { name: "Disloyalty", color: "#95a5a6", quote: "Friends are fleeting." },
+      { name: "Avarice", color: "#34495e", quote: "I want more." },
+      { name: "Malignance", color: "#8e44ad", quote: "I seek harm." },
+      { name: "Destructiveness", color: "#c0392b", quote: "I break all." },
+      { name: "Oppression", color: "#7f8c8d", quote: "I crush hope." },
+      { name: "Treachery", color: "#95a5a6", quote: "Trust is folly." },
+      { name: "Darkness", color: "#34495e", quote: "I swallow light." },
+      { name: "Vengefulness", color: "#8e44ad", quote: "I repay all." }
+    ]
+  },
+
+
+
+
+"Uncommon": {
+  good: [
+    { name: "Aspiration", color: "#ff5733", quote: "Reach beyond." },
+    { name: "Serendipity", color: "#33ffbd", quote: "Luck finds me." },
+    { name: "Radiance", color: "#ffbd33", quote: "Glow within." },
+    { name: "Clarity", color: "#3385ff", quote: "See the truth." },
+    { name: "Vigor", color: "#33ff57", quote: "Strength flows." },
+    { name: "Invention", color: "#ff33a8", quote: "New paths form." },
+    { name: "Zeal", color: "#a833ff", quote: "Energy burns." },
+    { name: "Benevolence", color: "#33fff0", quote: "I give freely." },
+    { name: "Spark", color: "#ff8c33", quote: "Ignite hope." },
+    { name: "Tenacity", color: "#338cff", quote: "Never yield." },
+    { name: "Brilliance", color: "#8cff33", quote: "Shine bright." },
+    { name: "Vigilance", color: "#ff3333", quote: "I watch closely." },
+    { name: "Harmony", color: "#33ff99", quote: "All aligns." },
+    { name: "Inspiration", color: "#ffcc33", quote: "Ideas bloom." },
+    { name: "Wisdom", color: "#3366ff", quote: "I see deeply." },
+    { name: "Fortitude", color: "#33ffcc", quote: "Endure always." },
+    { name: "Joyfulness", color: "#ff33cc", quote: "Happiness grows." },
+    { name: "Patience", color: "#ff6633", quote: "Wait with grace." },
+    { name: "Adaptability", color: "#33ff66", quote: "I bend freely." },
+    { name: "Courage", color: "#ccff33", quote: "Face fear." },
+    { name: "Altruism", color: "#ffcc66", quote: "Give without thought." },
+    { name: "Motivation", color: "#66ff33", quote: "Drive never ends." },
+    { name: "Enlightenment", color: "#ff9966", quote: "Truth shines." },
+    { name: "Joy", color: "#66ccff", quote: "Celebrate life." },
+    { name: "Vibrance", color: "#99ff33", quote: "Energy flows." },
+    { name: "Illumination", color: "#33ffcc", quote: "Light leads." },
+    { name: "Insight", color: "#cc66ff", quote: "See clearly." },
+    { name: "Peace", color: "#66ffcc", quote: "Calm reigns." },
+    { name: "Fortune", color: "#ffcc99", quote: "Luck favors me." },
+    { name: "Hope", color: "#33ff33", quote: "Tomorrow awaits." },
+    { name: "Passion", color: "#ff3366", quote: "Burn bright." },
+    { name: "Reverence", color: "#66cc99", quote: "Respect all." },
+    { name: "Growth", color: "#ccff99", quote: "I evolve." },
+    { name: "Unity", color: "#ff9966", quote: "Together as one." },
+    { name: "Elevation", color: "#3399ff", quote: "Rise higher." },
+    { name: "Focus", color: "#ff66cc", quote: "Eyes on goal." },
+    { name: "Luminosity", color: "#33ff99", quote: "I shine." },
+    { name: "Inspiration", color: "#cc3399", quote: "Light ignites." },
+    { name: "Joyousness", color: "#3399cc", quote: "Celebrate now." },
+    { name: "Seraph", color: "#cc66ff", quote: "Pure heart." },
+    { name: "Luminary", color: "#66ccff", quote: "Guide the way." },
+    { name: "Radiant", color: "#ff33cc", quote: "Glow within." }
+  ],
+  bad: [
+    { name: "Doubt", color: "#4a4a4a", quote: "I question all." },
+    { name: "Fear", color: "#333333", quote: "Shadows consume." },
+    { name: "Envy", color: "#5a5a5a", quote: "I want theirs." },
+    { name: "Cynicism", color: "#2e2e2e", quote: "Nothing is true." },
+    { name: "Suspicion", color: "#3d3d3d", quote: "Trust is weak." },
+    { name: "Grudge", color: "#444444", quote: "I remember slights." },
+    { name: "Cowardice", color: "#262626", quote: "Run away." },
+    { name: "Negativity", color: "#555555", quote: "All is bad." },
+    { name: "Obsession", color: "#3b3b3b", quote: "Cannot let go." },
+    { name: "Malice", color: "#4f4f4f", quote: "I harm for joy." },
+    { name: "Resentment", color: "#3a3a3a", quote: "Old pain lingers." },
+    { name: "Deception", color: "#2b2b2b", quote: "Truth hides." },
+    { name: "Spite", color: "#464646", quote: "I strike all." },
+    { name: "Greed", color: "#3c3c3c", quote: "Never enough." },
+    { name: "Arrogance", color: "#525252", quote: "I am supreme." },
+    { name: "Manipulation", color: "#2d2d2d", quote: "I pull strings." },
+    { name: "Wrath", color: "#4d4d4d", quote: "Anger burns." },
+    { name: "Depravity", color: "#3e3e3e", quote: "I indulge vice." },
+    { name: "Blame", color: "#292929", quote: "Not my fault." },
+    { name: "Corruption", color: "#585858", quote: "Rot spreads." },
+    { name: "Hostility", color: "#313131", quote: "I oppose all." },
+    { name: "Treachery", color: "#474747", quote: "Betray freely." },
+    { name: "Chaos", color: "#3f3f3f", quote: "Order ends." },
+    { name: "Folly", color: "#353535", quote: "Act without thought." },
+    { name: "Despair", color: "#5b5b5b", quote: "Hope is dead." },
+    { name: "Malcontent", color: "#2c2c2c", quote: "Never pleased." },
+    { name: "Disdain", color: "#4c4c4c", quote: "I scorn all." },
+    { name: "Contempt", color: "#383838", quote: "Look down on all." },
+    { name: "Oppression", color: "#3a3a3a", quote: "Crush hope." },
+    { name: "Enmity", color: "#535353", quote: "I hold grudges." },
+    { name: "Darkness", color: "#1f1f1f", quote: "Light dies here." },
+    { name: "Vengefulness", color: "#4b4b4b", quote: "I repay all." },
+    { name: "Oblivion", color: "#2e2e2e", quote: "All fades." },
+    { name: "Neglect", color: "#3b3b3b", quote: "Ignore all." },
+    { name: "Indifference", color: "#4a4a4a", quote: "Nothing matters." },
+    { name: "Avarice", color: "#363636", quote: "Take everything." },
+    { name: "Malignance", color: "#474747", quote: "I seek harm." },
+    { name: "Destructiveness", color: "#3f3f3f", quote: "I destroy all." },
+    { name: "Paranoia", color: "#2b2b2b", quote: "All watch me." },
+    { name: "Isolation", color: "#1a1a1a", quote: "Alone forever." },
+    { name: "Fearfulness", color: "#3c3c3c", quote: "I flee all." },
+    { name: "Animosity", color: "#4e4e4e", quote: "I hate deeply." },
+    { name: "Rebellion", color: "#313131", quote: "Defy all." },
+    { name: "Desperation", color: "#2d2d2d", quote: "No way remains." },
+    { name: "Tyranny", color: "#3f3f3f", quote: "Dominate all." },
+    { name: "Decay", color: "#1f1f1f", quote: "Rot spreads." }
+  ]
+},
+
+
+
+
+"Rare": {
+  good: [
+   { name: "Ambition", color: "#ff9933", quote: "Aim for stars." },
+    { name: "Creativity", color: "#cc33ff", quote: "New forms emerge." },
+    { name: "Justice", color: "#3399ff", quote: "Balance is law." },
+    { name: "Determination", color: "#ff33cc", quote: "Never back down." },
+    { name: "Valor", color: "#33ff66", quote: "Brave through storm." },
+    { name: "Elation", color: "#33ccff", quote: "Joy lifts all." },
+    { name: "Empowerment", color: "#ff3399", quote: "Strength in me." },
+    { name: "Foresight", color: "#ccff33", quote: "See beyond now." },
+    { name: "Guardian", color: "#ff9966", quote: "I shield all." },
+    { name: "Brilliance", color: "#ff66cc", quote: "Ideas shine bright." },
+    { name: "Triumph", color: "#33ffcc", quote: "I overcome all." },
+    { name: "Inspiration", color: "#ff3399", quote: "Light sparks ideas." },
+    { name: "Luminosity", color: "#cc66ff", quote: "Radiate hope." },
+    { name: "Ethereal", color: "#66ff66", quote: "I float above." },
+    { name: "Ascendance", color: "#ffcc33", quote: "Rise ever higher." },
+    { name: "Vigilance", color: "#9933cc", quote: "Eyes never close." },
+    { name: "Seraphic", color: "#ff66ff", quote: "Pure light shines." },
+    { name: "Innovation", color: "#ff9966", quote: "Create anew." },
+    { name: "Courageousness", color: "#33cc99", quote: "Fear bends away." },
+    { name: "Empathy", color: "#ff33cc", quote: "I feel all." },
+    { name: "InspirationSpark", color: "#ff6633", quote: "Fire ignites." },
+    { name: "Valorheart", color: "#33ffcc", quote: "Bravery flows." },
+    { name: "Ascendant", color: "#cc33ff", quote: "Beyond the peak." },
+    { name: "Providence", color: "#ffcc66", quote: "Fate favors me." },
+    { name: "Fortress", color: "#ff3399", quote: "Immovable heart." },
+    { name: "Starfire", color: "#66ff33", quote: "Shine endlessly." },
+    { name: "Elysium", color: "#ffcc33", quote: "Peace surrounds." },
+    { name: "Zenith", color: "#33ccff", quote: "I reach the peak." },
+    { name: "Luminescence", color: "#ff3366", quote: "Light guides all." },
+    { name: "Aurora", color: "#cc33ff", quote: "Colors dance bright." },
+    { name: "Beacon", color: "#ffcc99", quote: "I lead the way." },
+    { name: "Eminence", color: "#33ff99", quote: "Stand above." },
+    { name: "Revelation", color: "#ff9933", quote: "Truth unveiled." },
+    { name: "Ascension", color: "#66ccff", quote: "Beyond the sky." },
+    { name: "Nobleheart", color: "#ff33cc", quote: "I act with honor." }
+  ],
+  bad: [
+    { name: "Pride", color: "#331a1a", quote: "I tower above." },
+    { name: "Impatience", color: "#4d1a1a", quote: "Wait is waste." },
+    { name: "Resentment", color: "#661a1a", quote: "Old hurts burn." },
+    { name: "Stubbornness", color: "#331a33", quote: "I never bend." },
+    { name: "Vanity", color: "#4d004d", quote: "Admire me." },
+    { name: "Greed", color: "#1a331a", quote: "I want more." },
+    { name: "Wrath", color: "#331a00", quote: "Fury unbound." },
+    { name: "Manipulation", color: "#1a1a33", quote: "I pull strings." },
+    { name: "Arrogance", color: "#331a66", quote: "I am supreme." },
+    { name: "Betrayal", color: "#660033", quote: "Trust is broken." },
+    { name: "Obsession", color: "#1a0066", quote: "Nothing else matters." },
+    { name: "Corruption", color: "#33001a", quote: "Rot spreads." },
+    { name: "Despair", color: "#000033", quote: "All hope lost." },
+    { name: "Recklessness", color: "#330033", quote: "I leap blindly." },
+    { name: "Tyranny", color: "#1a1a1a", quote: "All must bow." },
+    { name: "Madness", color: "#33001a", quote: "Chaos reigns." },
+    { name: "Oblivion", color: "#001a33", quote: "Nothing remains." },
+    { name: "Torment", color: "#331a1a", quote: "Pain endless." },
+    { name: "Voidborn", color: "#1a001a", quote: "Silence devours." },
+    { name: "Doom", color: "#330000", quote: "End is near." },
+    { name: "Decay", color: "#1a3300", quote: "All rots." },
+    { name: "Enmity", color: "#33004d", quote: "I hate all." },
+    { name: "Chaosborn", color: "#001a1a", quote: "Untamed force." },
+    { name: "Obliviate", color: "#331a66", quote: "Erased from memory." },
+    { name: "Disintegration", color: "#330066", quote: "Fall to dust." },
+    { name: "Insatiable", color: "#1a004d", quote: "Never enough." },
+    { name: "Annihilation", color: "#000066", quote: "Nothing survives." },
+    { name: "Ruin", color: "#33001a", quote: "Collapse comes." },
+    { name: "Blight", color: "#1a3300", quote: "Spoil everything." },
+    { name: "Famine", color: "#331a00", quote: "All hunger." },
+    { name: "Pestilence", color: "#1a331a", quote: "Disease spreads." },
+    { name: "Obscurity", color: "#000033", quote: "All is hidden." },
+    { name: "Enshadowed", color: "#330033", quote: "Darkness reigns." },
+    { name: "Malevolence", color: "#1a0033", quote: "I sow harm." },
+    { name: "Cacophony", color: "#33004d", quote: "Noise consumes." },
+    { name: "Nightmare", color: "#000033", quote: "Fear never ends." },
+    { name: "Abyss", color: "#330066", quote: "Endless void." },
+    { name: "Dread", color: "#1a001a", quote: "Terror follows." },
+    { name: "Malice", color: "#330033", quote: "I delight in pain." },
+    { name: "Havoc", color: "#001a33", quote: "All falls apart." },
+    { name: "Discord", color: "#33001a", quote: "Chaos rules." },
+    { name: "Obstruction", color: "#1a3300", quote: "I block all." },
+    { name: "Suppression", color: "#330066", quote: "I silence hope." },
+    { name: "Oppression", color: "#1a004d", quote: "All under control." },
+    { name: "Malevolency", color: "#330033", quote: "Harm flows." },
+    { name: "Vexation", color: "#001a33", quote: "I irritate all." },
+    { name: "Eclipse", color: "#330000", quote: "Light consumed." },
+    { name: "Obfuscation", color: "#1a331a", quote: "Truth hidden." },
+    { name: "Damnation", color: "#330033", quote: "Endless curse." },
+    { name: "Cataclysm", color: "#660000", quote: "All must fall." }
+  ]
+},
+
+
+
+
+"Epic": {
+  good: [
+    { name: "Loyalty", color: "#33ccff", quote: "I never leave." },
+    { name: "Integrity", color: "#66ff33", quote: "Word unbroken." },
+    { name: "Perseverance", color: "#ff9933", quote: "Through storm and fire." },
+    { name: "Enlightenment", color: "#33ff99", quote: "Mind shines bright." },
+    { name: "Ascendancy", color: "#ffcc33", quote: "Rise above all." },
+    { name: "Nobility", color: "#66ccff", quote: "Act with honor." },
+    { name: "Sanctity", color: "#33ffcc", quote: "Pure hearted." },
+    { name: "Heroism", color: "#ff66cc", quote: "Courage never ends." },
+    { name: "Illumination", color: "#33ff33", quote: "Light leads the way." },
+    { name: "Guardianship", color: "#ccff33", quote: "I shield all." },
+    { name: "Inspiration", color: "#ff9933", quote: "Spark ignites minds." },
+    { name: "Excellence", color: "#33ff66", quote: "I surpass all." },
+    { name: "Empathy", color: "#ffcc33", quote: "I feel deeply." },
+    { name: "Ethereal", color: "#66ccff", quote: "Beyond the veil." },
+    { name: "Eminence", color: "#66ff33", quote: "Stand above all." },
+    { name: "Valorous", color: "#ff66cc", quote: "Bravery unbound." },
+    { name: "Elevated", color: "#33ff33", quote: "I rise above." },
+    { name: "Visionary", color: "#ff33cc", quote: "See beyond sight." },
+    { name: "Invictus", color: "#cc33ff", quote: "Unbroken always." },
+    { name: "RadiantSoul", color: "#33ff99", quote: "Glow within." },
+    { name: "Empowered", color: "#ffcc33", quote: "Strength flows." },
+    { name: "AuroraLight", color: "#ff33cc", quote: "Colors blaze bright." },
+    { name: "GuardianSoul", color: "#66ff66", quote: "I stand eternal." },
+    { name: "Illustrious", color: "#ff9966", quote: "Renown shines." },
+    { name: "Celestia", color: "#33ffcc", quote: "Stars guide me." },
+    { name: "Empyreal", color: "#ff66ff", quote: "Above all worlds." },
+    { name: "Everlight", color: "#33cc66", quote: "Light never fades." },
+    { name: "SeraphSoul", color: "#ffcc99", quote: "Pure essence." }
+  ],
+  bad: [
+    { name: "Greed", color: "#330000", quote: "Never enough." },
+    { name: "Wrath", color: "#4d0000", quote: "Fury consumes." },
+    { name: "Manipulation", color: "#330033", quote: "Strings obey me." },
+    { name: "Arrogance", color: "#660033", quote: "I am supreme." },
+    { name: "Betrayal", color: "#33004d", quote: "Trust is broken." },
+    { name: "Obsession", color: "#1a0033", quote: "All else fades." },
+    { name: "Corruption", color: "#330066", quote: "Rot spreads." },
+    { name: "Despair", color: "#000033", quote: "Hope dies." },
+    { name: "Recklessness", color: "#330011", quote: "Leap blindly." },
+    { name: "Tyranny", color: "#1a1a33", quote: "All must bow." },
+    { name: "Madness", color: "#330055", quote: "Chaos reigns." },
+    { name: "Oblivion", color: "#001a33", quote: "All fades." },
+    { name: "Torment", color: "#330022", quote: "Endless pain." },
+    { name: "Voidborn", color: "#1a0033", quote: "Silence devours." },
+    { name: "Doom", color: "#330000", quote: "End is near." },
+    { name: "Decay", color: "#1a3300", quote: "All rots." },
+    { name: "Enmity", color: "#330044", quote: "I hate all." },
+    { name: "Chaosborn", color: "#001a1a", quote: "Untamed force." },
+    { name: "Obliviate", color: "#330066", quote: "Erased forever." },
+    { name: "Disintegration", color: "#330022", quote: "Fall to dust." },
+    { name: "Insatiable", color: "#1a0044", quote: "Never enough." },
+    { name: "Annihilation", color: "#000066", quote: "Nothing survives." },
+    { name: "Ruin", color: "#330011", quote: "Collapse comes." },
+    { name: "Blight", color: "#1a3300", quote: "Spoil everything." },
+    { name: "Famine", color: "#330000", quote: "All hunger." },
+    { name: "Pestilence", color: "#1a331a", quote: "Disease spreads." },
+    { name: "Obscurity", color: "#000033", quote: "All hidden." },
+    { name: "Enshadowed", color: "#330033", quote: "Darkness reigns." },
+    { name: "Malevolence", color: "#1a0033", quote: "I sow harm." },
+    { name: "Cacophony", color: "#330044", quote: "Noise consumes." },
+    { name: "Nightmare", color: "#000033", quote: "Fear never ends." },
+    { name: "Abyss", color: "#330066", quote: "Endless void." },
+    { name: "Dread", color: "#1a001a", quote: "Terror follows." },
+    { name: "Malice", color: "#330033", quote: "Pain delights me." },
+    { name: "Havoc", color: "#001a33", quote: "All falls apart." },
+    { name: "Discord", color: "#330011", quote: "Chaos rules." },
+    { name: "Obstruction", color: "#1a3300", quote: "I block all." },
+    { name: "Suppression", color: "#330066", quote: "Silence reigns." },
+    { name: "Oppression", color: "#1a0044", quote: "All under control." },
+    { name: "Malevolency", color: "#330033", quote: "Harm flows." },
+    { name: "Vexation", color: "#001a33", quote: "I irritate all." },
+    { name: "Eclipse", color: "#330000", quote: "Light consumed." },
+    { name: "Obfuscation", color: "#1a331a", quote: "Truth hidden." },
+    { name: "Damnation", color: "#330033", quote: "Endless curse." },
+    { name: "Cataclysm", color: "#660000", quote: "All must fall." },
+    { name: "Maleficence", color: "#331a33", quote: "Evil flows." },
+    { name: "Nightfall", color: "#000033", quote: "Darkness reigns." },
+    { name: "Cimmerian", color: "#330044", quote: "Shadow devours." },
+    { name: "OblivionHeart", color: "#330066", quote: "All erased." },
+    { name: "BlackenedSoul", color: "#1a001a", quote: "I am void." },
+    { name: "Ravager", color: "#330033", quote: "I destroy all." }
+  ]
+},
+
+
+
+
+"Legendary": {
+  good: [
+    { name: "Honor", color: "#ff9933", quote: "My path is true." },
+    { name: "Vision", color: "#ff33cc", quote: "The future unfolds." },
+    { name: "Purity", color: "#66ffcc", quote: "Unstained by world." },
+    { name: "Iron Will", color: "#ff3366", quote: "Nothing bends me." },
+    { name: "Solar Flare", color: "#ffcc33", quote: "Light blazes strong." },
+    { name: "Thunderheart", color: "#33ccff", quote: "Power strikes swift." },
+    { name: "Celestial Grace", color: "#ff66ff", quote: "Stars guide me." },
+    { name: "Eternal Flame", color: "#33ff33", quote: "Burns endlessly." },
+    { name: "Lionhearted", color: "#ff9933", quote: "Bravery unmatched." },
+    { name: "Radiant Dawn", color: "#ccff33", quote: "Light conquers dark." },
+    { name: "Stormbreaker", color: "#33ffcc", quote: "I cleave the sky." },
+    { name: "Titan’s Resolve", color: "#ff3366", quote: "I stand unshaken." },
+    { name: "Aurora Sentinel", color: "#33cc66", quote: "Watching evermore." },
+    { name: "Phoenix Spirit", color: "#ff66cc", quote: "Rise from ashes." },
+    { name: "True North", color: "#33ff99", quote: "Guided without fail." },
+    { name: "Empyrean Light", color: "#ffcc99", quote: "Shining above all." },
+    { name: "Victory’s Song", color: "#66ff33", quote: "Triumph echoes." },
+    { name: "Unyielding Soul", color: "#ff33cc", quote: "Never broken." },
+    { name: "Starforged", color: "#33ccff", quote: "Born of cosmos." },
+    { name: "Guardian Spirit", color: "#ff9933", quote: "I protect all." },
+    { name: "Moonlit Valor", color: "#cc33ff", quote: "Courage in night." },
+    { name: "Solar Crest", color: "#ff66ff", quote: "Light rises high." },
+    { name: "Titanheart", color: "#33ff66", quote: "Strength eternal." },
+    { name: "Crystal Beacon", color: "#ffcc33", quote: "Guiding bright path." },
+    { name: "Everlight", color: "#33ffcc", quote: "Shines forevermore." },
+    { name: "Golden Aegis", color: "#ff3366", quote: "Shield of hope." },
+    { name: "Starlight Path", color: "#33cc66", quote: "Illuminates journey." },
+    { name: "Sovereign Soul", color: "#ff66cc", quote: "Commanding all." },
+    { name: "Celestia Prime", color: "#33ff99", quote: "Above all skies." },
+    { name: "Radiant Sentinel", color: "#ffcc99", quote: "Ever vigilant." },
+    { name: "Phoenix Heart", color: "#66ff33", quote: "Rebirth eternal." },
+    { name: "Empyrean Valor", color: "#ff33cc", quote: "Power with honor." },
+    { name: "Dawnbringer", color: "#33ccff", quote: "Light dispels night." },
+    { name: "Luminary Star", color: "#ff9933", quote: "Guiding bright." },
+    { name: "Celestial Vanguard", color: "#cc33ff", quote: "Leading evermore." },
+    { name: "Titan’s Heart", color: "#ff66ff", quote: "Endless strength." },
+    { name: "Ethereal Knight", color: "#33ff66", quote: "Brave and true." },
+    { name: "Radiant Soulfire", color: "#ffcc33", quote: "Burns eternal." },
+    { name: "Astral Guardian", color: "#33ffcc", quote: "Protects always." },
+    { name: "Luminescent Will", color: "#ff3366", quote: "Shines unwavering." },
+    { name: "Solar Sentinel", color: "#33cc66", quote: "Watcher of light." },
+    { name: "Infinite Dawn", color: "#ff66cc", quote: "New day rises." },
+    { name: "Aetherial Light", color: "#33ff99", quote: "Flowing above all." },
+    { name: "Celestial Radiance", color: "#ffcc99", quote: "Glows eternal." },
+    { name: "Golden Phoenix", color: "#66ff33", quote: "Rebirth ignites." },
+    { name: "Vigilant Spirit", color: "#ff33cc", quote: "Ever aware." },
+    { name: "Starfire Knight", color: "#33ccff", quote: "Burning courage." },
+    { name: "Solar Aegis", color: "#ff9933", quote: "Shield of day." },
+    { name: "Titan Luminary", color: "#cc33ff", quote: "Strength shines." },
+    { name: "Aurora Blade", color: "#ff66ff", quote: "Light strikes swift." },
+    { name: "Eternal Vanguard", color: "#33ff66", quote: "Watch unending." }
+  ],
+  bad: [
+    { name: "Recklessness", color: "#330000", quote: "Leap without care." },
+    { name: "Obsession", color: "#330033", quote: "Nothing else matters." },
+    { name: "Corruption", color: "#660000", quote: "Rot spreads wide." },
+    { name: "Despair", color: "#330011", quote: "Hope is gone." },
+    { name: "Oblivion", color: "#000033", quote: "All fades to black." },
+    { name: "Torment", color: "#330022", quote: "Pain never ends." },
+    { name: "Voidborn", color: "#1a001a", quote: "I am nothing." },
+    { name: "Dread", color: "#330044", quote: "Fear shadows me." },
+    { name: "Malevolence", color: "#330066", quote: "I sow pain." },
+    { name: "Blight", color: "#1a0033", quote: "Everything decays." },
+    { name: "Abyssal Echo", color: "#000011", quote: "Endless void." },
+    { name: "Nightfall", color: "#330055", quote: "Darkness consumes." },
+    { name: "Cimmerian Shade", color: "#330077", quote: "All light dies." },
+    { name: "Blackened Heart", color: "#1a0022", quote: "I corrupt all." },
+    { name: "Ruinbringer", color: "#330033", quote: "Chaos follows me." },
+    { name: "Frostbite Soul", color: "#001a33", quote: "Cold devours hope." },
+    { name: "Eclipse Wraith", color: "#330000", quote: "Shadow swallows light." },
+    { name: "Obsidian Veil", color: "#1a0011", quote: "Hides the truth." },
+    { name: "Doom Herald", color: "#330066", quote: "All ends soon." },
+    { name: "Vexed Shade", color: "#330011", quote: "I haunt all." },
+    { name: "Cacophonic Void", color: "#000033", quote: "Chaos reigns." },
+    { name: "Malefic Shadow", color: "#330022", quote: "Dark flows within." },
+    { name: "Nightmareborn", color: "#1a0033", quote: "Fear incarnate." },
+    { name: "Oblivion’s Kiss", color: "#330044", quote: "All fades." },
+    { name: "Abyss Walker", color: "#001a22", quote: "I traverse void." },
+    { name: "Ravager Soul", color: "#330033", quote: "Destroy all." },
+    { name: "Endbringer", color: "#330055", quote: "The final end." },
+    { name: "Shadowbane", color: "#1a0022", quote: "I crush light." },
+    { name: "Malevolent Echo", color: "#330066", quote: "Pain resounds." },
+    { name: "Cataclysmic Heart", color: "#330011", quote: "Chaos ignites." },
+    { name: "Oblivion Warden", color: "#001a33", quote: "Silence reigns." },
+    { name: "Voidcaller", color: "#330033", quote: "Call nothingness." },
+    { name: "Night Reaver", color: "#330077", quote: "I hunt darkness." },
+    { name: "Eternal Ruin", color: "#000033", quote: "Fall never ends." },
+    { name: "Blackened Soulfire", color: "#330066", quote: "Burning dark." },
+    { name: "Famine Lord", color: "#1a0011", quote: "All hunger grows." },
+    { name: "Malicious Whisper", color: "#330022", quote: "I speak harm." },
+    { name: "Shadowed Tyrant", color: "#330033", quote: "All obey me." },
+    { name: "Voidheart", color: "#001a33", quote: "Nothing lives." },
+    { name: "Dreadspire", color: "#330044", quote: "Towers fear." },
+    { name: "Nightfall Phantom", color: "#330011", quote: "I haunt night." },
+    { name: "Chaos Reaver", color: "#330066", quote: "Destroy all order." },
+    { name: "Obsidian Soul", color: "#1a0033", quote: "Hard and cold." },
+    { name: "Abysswalker", color: "#000011", quote: "Void guides me." },
+    { name: "Darkened Vanguard", color: "#330033", quote: "Lead to shadow." },
+    { name: "Ruinshaper", color: "#330022", quote: "Formed from collapse." },
+    { name: "Eclipseborn", color: "#001a33", quote: "Shadow is home." },
+    { name: "Doomveil", color: "#330066", quote: "I cloak all." },
+    { name: "Nightbane", color: "#330011", quote: "Light flees me." }
+  ]
+},
+
+
+
+
+"Mythic": {
+  good: [
+    { name: "Balance", color: "#33ffcc", quote: "Harmony in all." },
+    { name: "Guardian", color: "#33ff99", quote: "I stand eternal." },
+    { name: "Awakening", color: "#ff33cc", quote: "Eyes open wide." },
+    { name: "Celestial Harmony", color: "#ffff66", quote: "Stars align true." },
+    { name: "Infinite Grace", color: "#33ccff", quote: "Boundless mercy." },
+    { name: "Ethereal Dawn", color: "#ff66cc", quote: "Light breaks forth." },
+    { name: "Astral Radiance", color: "#33ffcc", quote: "Glow across cosmos." },
+    { name: "Divine Insight", color: "#ffcc33", quote: "Knowledge illuminates." },
+    { name: "Solar Seraph", color: "#ff9966", quote: "Burns pure light." },
+    { name: "Moonlit Harmony", color: "#66ff33", quote: "Calm flows through night." },
+    { name: "Aurora Beacon", color: "#33ff99", quote: "Guiding luminous path." },
+    { name: "Titanic Resolve", color: "#ff33cc", quote: "Strength unbroken." },
+    { name: "Radiant Virtue", color: "#33ccff", quote: "Good shines forth." },
+    { name: "Luminescent Heart", color: "#ffcc66", quote: "Glows from within." },
+    { name: "Starforged Will", color: "#ff66ff", quote: "Power of cosmos." },
+    { name: "Infinite Horizon", color: "#33ffcc", quote: "Endless possibilities." },
+    { name: "Empyreal Soul", color: "#ffcc33", quote: "Above mortal bounds." },
+    { name: "Beacon of Hope", color: "#33cc66", quote: "Guiding light forever." },
+    { name: "Celestial Titan", color: "#ff33cc", quote: "Strength of stars." },
+    { name: "Everbright Flame", color: "#33ff66", quote: "Eternal glow." },
+    { name: "Starlit Vanguard", color: "#ffcc99", quote: "Lead through night." },
+    { name: "Astral Sentinel", color: "#33ccff", quote: "Watch over all." },
+    { name: "Heaven’s Radiance", color: "#ff66cc", quote: "Pure light shines." },
+    { name: "Solar Ascendant", color: "#ff9933", quote: "Rise with sun." },
+    { name: "Aurora Soulfire", color: "#33cc66", quote: "Colors ignite heart." },
+    { name: "Titanheart", color: "#ff33cc", quote: "Strength endures." },
+    { name: "Empyrean Light", color: "#33ffcc", quote: "Flow above all." },
+    { name: "Infinite Dawn", color: "#ffcc33", quote: "Day never ends." },
+    { name: "Starborne Guardian", color: "#33ccff", quote: "Protector of all." },
+    { name: "Celestial Beacon", color: "#ff66ff", quote: "Guiding evermore." },
+    { name: "Aurora Sentinel", color: "#33ff99", quote: "Vigil eternal." },
+    { name: "Luminescent Will", color: "#ffcc66", quote: "Steadfast light." },
+    { name: "Radiant Dawn", color: "#33cc66", quote: "New day rises." },
+    { name: "Solar Vanguard", color: "#ff33cc", quote: "Lead with light." },
+    { name: "Ethereal Sentinel", color: "#33ffcc", quote: "Ever watching." },
+    { name: "Stellar Beacon", color: "#ffcc33", quote: "Shines bright path." },
+    { name: "Celestia Prime", color: "#33ccff", quote: "Guided by stars." },
+    { name: "Eternal Vanguard", color: "#ffcc66", quote: "Ever vigilant." },
+    { name: "Astral Phoenix", color: "#33cc66", quote: "Rebirth in stars." },
+    { name: "Empyrean Knight", color: "#33ffcc", quote: "Brave above all." },
+    { name: "Radiant Sentinel", color: "#ffcc33", quote: "Watcher of light." },
+    { name: "Celestial Heart", color: "#33ccff", quote: "Pure essence." },
+    { name: "Infinite Beacon", color: "#ff66cc", quote: "Guiding forever." },
+    { name: "Starfire Guardian", color: "#33ff99", quote: "Burns with courage." },
+    { name: "Solar Aegis", color: "#ffcc66", quote: "Shield of day." },
+    { name: "Titan Vanguard", color: "#33cc66", quote: "Strength protects." },
+    { name: "Aurora Luminary", color: "#ff33cc", quote: "Glow eternal." }
+  ],
+  bad: [
+    { name: "Frostborn", color: "#66ccff", quote: "Cold consumes." },
+    { name: "Ashwraith", color: "#555555", quote: "Smoldering pain." },
+    { name: "Shadowmire", color: "#1a1a2e", quote: "Sinking in dark." },
+    { name: "Grimveil", color: "#2c2c3c", quote: "Hides all hope." },
+    { name: "Nightreaper", color: "#0d0d1a", quote: "Steals the light." },
+    { name: "Blightborn", color: "#553333", quote: "Spreads decay." },
+    { name: "Dreadfang", color: "#330033", quote: "Fear bites hard." },
+    { name: "Voidcaller", color: "#1a0033", quote: "Summons the void." },
+    { name: "Cinderwraith", color: "#662200", quote: "Burns unseen." },
+    { name: "Oblivionfang", color: "#110022", quote: "Death waits." },
+    { name: "Gloomveil", color: "#333344", quote: "Dark clouds linger." },
+    { name: "Shiverbane", color: "#66ccff", quote: "Ice chills bones." },
+    { name: "Ebonclaw", color: "#220022", quote: "Tears all apart." },
+    { name: "Nightshard", color: "#111133", quote: "Pierces hope." },
+    { name: "Ashveil", color: "#555533", quote: "Smothering smoke." },
+    { name: "Doombringer", color: "#330011", quote: "End draws near." },
+    { name: "Frostveil", color: "#99ccff", quote: "Cold lingers." },
+    { name: "Shadowrend", color: "#330033", quote: "Tear apart light." },
+    { name: "Grimfang", color: "#1a0011", quote: "Bites relentlessly." },
+    { name: "Voidshadow", color: "#000033", quote: "Darkness calls." },
+    { name: "Cinderveil", color: "#663300", quote: "Burns the soul." },
+    { name: "Nightflame", color: "#330022", quote: "Cold fire burns." },
+    { name: "Blightveil", color: "#442211", quote: "Spoils everything." },
+    { name: "Dreadveil", color: "#330044", quote: "Fear spreads." },
+    { name: "Frostfang", color: "#99ddff", quote: "Bites like ice." },
+    { name: "Ashborn", color: "#555555", quote: "Rises from dust." },
+    { name: "Shadowveil", color: "#220033", quote: "Hides in dark." },
+    { name: "Nightbane", color: "#000011", quote: "Light flees me." },
+    { name: "Voidfang", color: "#1a0033", quote: "Teeth of emptiness." },
+    { name: "Cinderfang", color: "#662200", quote: "Burning pain." },
+    { name: "Frostmourne", color: "#66ccff", quote: "Frozen blade." },
+    { name: "Nightwraith", color: "#110022", quote: "Haunts the night." },
+    { name: "Ashclaw", color: "#555533", quote: "Rips to dust." },
+    { name: "Blightfang", color: "#442211", quote: "Corrupts all." },
+    { name: "Dreadfang", color: "#330033", quote: "Terror strikes." },
+    { name: "Shadowfang", color: "#220022", quote: "Silent predator." },
+    { name: "Voidborn", color: "#000033", quote: "Nothing remains." },
+    { name: "Cindermane", color: "#663300", quote: "Flames devour." },
+    { name: "Frostveil", color: "#99ccff", quote: "Chill spreads." },
+    { name: "Nightveil", color: "#110022", quote: "Darkness reigns." },
+    { name: "Ashveil", color: "#555533", quote: "Smothering ash." },
+    { name: "Grimfang", color: "#1a0011", quote: "Tearing fear." },
+    { name: "Blightwraith", color: "#442211", quote: "Rot follows." },
+    { name: "Doomfang", color: "#330011", quote: "End comes." },
+    { name: "Shadowborn", color: "#220033", quote: "Darkness rises." },
+    { name: "Frostwraith", color: "#66ccff", quote: "Ice reigns." },
+    { name: "Voidveil", color: "#000033", quote: "Nothing hides." },
+    { name: "Nightborn", color: "#110022", quote: "Fear awakens." }
+  ]
+},
+
+
+
+
+"Celestial": {
+  good: [
+    { name: "Infinity", color: "#66ffff", quote: "Endless as cosmos." },
+    { name: "Genesis", color: "#ffffff", quote: "Creation begins anew." },
+    { name: "Stellar Ascendancy", color: "#ffccff", quote: "Reach the stars." },
+    { name: "Aurora Luminescence", color: "#ccffdd", quote: "Light eternal." },
+    { name: "Celestial Dominion", color: "#ffdd66", quote: "All obey light." },
+    { name: "Eternal Constellation", color: "#66ffcc", quote: "Guiding forever." },
+    { name: "Galactic Grace", color: "#ffcc99", quote: "Beauty of cosmos." },
+    { name: "Solar Expanse", color: "#ff9966", quote: "Light fills all." },
+    { name: "Luminous Eternity", color: "#ccff66", quote: "Never fading." },
+    { name: "Nova Heart", color: "#ff66ff", quote: "Explosion of hope." },
+    { name: "Celestia Virtue", color: "#99ffff", quote: "Above all sins." },
+    { name: "Astral Unity", color: "#66ff99", quote: "Boundless together." },
+    { name: "Radiant Horizon", color: "#ffcc66", quote: "Light spans wide." },
+    { name: "Empyrean Radiance", color: "#ff99ff", quote: "Glorious shine." },
+    { name: "Starlit Beacon", color: "#66ffcc", quote: "Guiding bright path." },
+    { name: "Luminary Crest", color: "#ccffcc", quote: "Mark of light." },
+    { name: "Aurora Sentinel", color: "#ffccff", quote: "Watcher of stars." },
+    { name: "Celestial Apex", color: "#ffff99", quote: "Peak of light." },
+    { name: "Galactic Vanguard", color: "#ccff99", quote: "Lead through cosmos." },
+    { name: "Solar Beacon", color: "#ffcc33", quote: "Shines eternal." },
+    { name: "Astral Sovereign", color: "#66ffcc", quote: "Rules by light." },
+    { name: "Nova Sentinel", color: "#ff99cc", quote: "Blazing protector." },
+    { name: "Luminescent Apex", color: "#ccff66", quote: "Highest glow." },
+    { name: "Ethereal Aurora", color: "#99ffcc", quote: "Colors forever." },
+    { name: "Celestia Radiance", color: "#ffcc99", quote: "Pure brilliance." },
+    { name: "Stellar Virtue", color: "#ccffcc", quote: "Good shines bright." },
+    { name: "Empyrean Beacon", color: "#ff99ff", quote: "Ever guiding." },
+    { name: "Aurora Crest", color: "#66ffcc", quote: "Light marks way." },
+    { name: "Infinite Luminance", color: "#ffcc66", quote: "Never ends." },
+    { name: "Celestial Radiant", color: "#ffccff", quote: "Glows forever." },
+    { name: "Astral Aurora", color: "#99ffff", quote: "Lights the void." },
+    { name: "Stellar Apex", color: "#66ff99", quote: "Peak of stars." },
+    { name: "Nova Luminary", color: "#ffcc33", quote: "Shines bright." },
+    { name: "Ethereal Beacon", color: "#ccffcc", quote: "Guides all light." },
+    { name: "Celestia Ascendant", color: "#ff99ff", quote: "Rise above stars." },
+    { name: "Galactic Beacon", color: "#66ffcc", quote: "Guiding endless skies." },
+    { name: "Radiant Aurora", color: "#ffcc66", quote: "Lights the path." },
+    { name: "Luminary Apex", color: "#ccff99", quote: "Top of light." },
+    { name: "Astral Virtue", color: "#99ffff", quote: "Shines with honor." },
+    { name: "Stellar Radiance", color: "#ffcc33", quote: "Bright as stars." },
+    { name: "Empyrean Apex", color: "#ff99cc", quote: "Highest reach." },
+    { name: "Aurora Radiance", color: "#ccff66", quote: "Glows eternal." },
+    { name: "Nova Crest", color: "#ffccff", quote: "Marks the dawn." },
+    { name: "Luminous Aurora", color: "#ffcc99", quote: "Colors shine bright." },
+    { name: "Starlit Apex", color: "#ccffcc", quote: "Highest peak." },
+    { name: "Galactic Radiance", color: "#ff99ff", quote: "Lights cosmos." },
+    { name: "Empyrean Luminary", color: "#66ffcc", quote: "Glorious beacon." },
+    { name: "Aurora Apex", color: "#ffcc66", quote: "Peak of colors." },
+    { name: "Celestia Luminance", color: "#ccff99", quote: "Bright forever." }
+  ],
+  bad: [
+    { name: "Isolation", color: "#2c2c2c", quote: "I drift alone." },
+    { name: "Delusion", color: "#330033", quote: "False visions reign." },
+    { name: "Collapse", color: "#1a1a2a", quote: "All crumbles." },
+    { name: "Tyranny", color: "#4d0000", quote: "All must obey." },
+    { name: "Extinction", color: "#0d0d11", quote: "Last light dies." },
+    { name: "Void Emperor", color: "#110022", quote: "All emptiness bows." },
+    { name: "Eclipse Herald", color: "#1a0033", quote: "Shadow spreads." },
+    { name: "Cosmic Reaver", color: "#330044", quote: "Consumes stars." },
+    { name: "Nebula Wraith", color: "#001122", quote: "Haunts the void." },
+    { name: "Oblivion Regent", color: "#220033", quote: "Power of nothing." },
+    { name: "Doombringer", color: "#330011", quote: "Fate ends here." },
+    { name: "Night Sovereign", color: "#000033", quote: "Dark rules all." },
+    { name: "Void Herald", color: "#110011", quote: "Calls the abyss." },
+    { name: "Ashborn", color: "#443322", quote: "Rises from decay." },
+    { name: "Shadow Tyrant", color: "#330022", quote: "All obey me." },
+    { name: "Frost Warden", color: "#66ccff", quote: "Ice seals fate." },
+    { name: "Blight Emperor", color: "#330033", quote: "Decay spreads wide." },
+    { name: "Cinder Monarch", color: "#552200", quote: "Flames reign." },
+    { name: "Night Reaver", color: "#110022", quote: "Preys on hope." },
+    { name: "Oblivion Overlord", color: "#220011", quote: "All fades." },
+    { name: "Grim Sovereign", color: "#330044", quote: "Darkness rules." },
+    { name: "Dread Emperor", color: "#330011", quote: "Fear commands all." },
+    { name: "Void Wraith", color: "#000033", quote: "Shadow lingers." },
+    { name: "Frostbane", color: "#66ccff", quote: "Cold destroys." },
+    { name: "Ash Tyrant", color: "#443322", quote: "Power in smoke." },
+    { name: "Eclipse Sovereign", color: "#1a0033", quote: "Dark eclipses light." },
+    { name: "Obsidian Emperor", color: "#220022", quote: "Hard as stone." },
+    { name: "Nightshade Warden", color: "#110011", quote: "Dark guards all." },
+    { name: "Voidborn King", color: "#000033", quote: "Nothing survives." },
+    { name: "Shadow Reaver", color: "#330022", quote: "Strikes unseen." },
+    { name: "Blight Monarch", color: "#443322", quote: "Decay spreads far." },
+    { name: "Frost Sovereign", color: "#66ccff", quote: "Ice rules all." },
+    { name: "Cinder Warden", color: "#552200", quote: "Flames guard." },
+    { name: "Doom Emperor", color: "#330033", quote: "All ends." },
+    { name: "Night King", color: "#110011", quote: "Darkness reigns." },
+    { name: "Void Tyrant", color: "#000033", quote: "Nothing obeys." },
+    { name: "Oblivion Wraith", color: "#220022", quote: "All fades." },
+    { name: "Shadow Monarch", color: "#330044", quote: "Dark rules." },
+    { name: "Eclipse Warden", color: "#1a0033", quote: "Shadows protect." },
+    { name: "Frost Reaver", color: "#66ccff", quote: "Ice bites deep." },
+    { name: "Ash Wraith", color: "#443322", quote: "Smoldering ghost." },
+    { name: "Night Tyrant", color: "#110011", quote: "Commands the dark." },
+    { name: "Void Emperor", color: "#000033", quote: "All emptiness reigns." },
+    { name: "Dread Sovereign", color: "#330011", quote: "Terror guides all." },
+    { name: "Cinder Reaver", color: "#552200", quote: "Flames consume." },
+    { name: "Shadow Warden", color: "#330033", quote: "Guards the void." },
+    { name: "Frost Monarch", color: "#66ccff", quote: "Ice dominates." },
+    { name: "Oblivion King", color: "#220022", quote: "Nothing remains." },
+    { name: "Night Wraith", color: "#110011", quote: "Haunts forever." }
+  ]
+},
+
+
+
+
+"Prismatic": {
+  good: [
+    { name: "Sunflare", color: "#ffcc33", quote: "Radiates life." },
+    { name: "Moonwhisper", color: "#ccffdd", quote: "Soft as night." },
+    { name: "Stardust Bloom", color: "#ff99ff", quote: "Sprouts in light." },
+    { name: "Oceanheart", color: "#33ccff", quote: "Deep and vast." },
+    { name: "Forestsong", color: "#33ff66", quote: "Leaves hum softly." },
+    { name: "Crystal Veil", color: "#ccff66", quote: "Shimmers eternal." },
+    { name: "Aurora Tide", color: "#66ffff", quote: "Flow of color." },
+    { name: "Solarwing", color: "#ff9966", quote: "Lifted by light." },
+    { name: "Lunaris", color: "#99ccff", quote: "Moonlit grace." },
+    { name: "Eclipse Bloom", color: "#cc66ff", quote: "Shadowed growth." },
+    { name: "Celestia Wave", color: "#ff66cc", quote: "Ripples through space." },
+    { name: "Flora Prism", color: "#66ff99", quote: "Life refracted." },
+    { name: "Meteorheart", color: "#ff3333", quote: "Impact of hope." },
+    { name: "Solarspire", color: "#ffcc99", quote: "Reach for sun." },
+    { name: "Galeflower", color: "#ccff33", quote: "Wind brings life." },
+    { name: "Nova Bloom", color: "#ff66ff", quote: "Explodes in light." },
+    { name: "Aurora Sylph", color: "#33ffff", quote: "Dances with wind." },
+    { name: "Starvine", color: "#99ff33", quote: "Growth among stars." },
+    { name: "Prismleaf", color: "#ffcc66", quote: "Colors of life." },
+    { name: "Celestial Nectar", color: "#ff99cc", quote: "Sweet cosmic glow." },
+    { name: "Radiant Reef", color: "#33ccff", quote: "Oceans gleam bright." },
+    { name: "Solar Cascade", color: "#ffcc33", quote: "Sunlight flows." },
+    { name: "Lumina Bloom", color: "#66ffcc", quote: "Shines in harmony." },
+    { name: "Comet Song", color: "#cc99ff", quote: "Trail of hope." },
+    { name: "Ethereal Vine", color: "#99ffcc", quote: "Twines through life." },
+    { name: "Crystal Meadow", color: "#ff66cc", quote: "Fields aglow." },
+    { name: "Aurora Petal", color: "#66ff99", quote: "Color drifts softly." },
+    { name: "Stellar Fern", color: "#33ffcc", quote: "Leaves of light." },
+    { name: "Solar Lotus", color: "#ffccff", quote: "Rises with sun." },
+    { name: "Moonbeam Root", color: "#ccff33", quote: "Anchors night." },
+    { name: "Galaxy Dew", color: "#66ccff", quote: "Drops of stars." },
+    { name: "Prism Orchid", color: "#ff99ff", quote: "Bloom in spectrum." },
+    { name: "Lumina Brook", color: "#33ff66", quote: "Streams of light." },
+    { name: "Nova Petal", color: "#ffcc66", quote: "Burst of life." },
+    { name: "Celestia Lily", color: "#99ffcc", quote: "Pure and bright." },
+    { name: "Solar Bloom", color: "#ff66cc", quote: "Sun-kissed growth." },
+    { name: "Aurora Willow", color: "#33ffff", quote: "Graceful sway." },
+    { name: "Prismatic Ivy", color: "#66ff99", quote: "Climbs with color." },
+    { name: "Starflare Vine", color: "#ccff66", quote: "Growth of cosmos." },
+    { name: "Luminara", color: "#ffcc33", quote: "Light unbound." },
+    { name: "Radiant Coral", color: "#ff99cc", quote: "Ocean glow bright." },
+    { name: "Moonlit Fern", color: "#66ffcc", quote: "Gentle and calm." },
+    { name: "Solar Gleam", color: "#ff66ff", quote: "Shines eternal." },
+    { name: "Nova Vine", color: "#33ffcc", quote: "Sprouts cosmic life." },
+    { name: "Ethereal Petal", color: "#ccff99", quote: "Soft and bright." },
+    { name: "Aurora Bloom", color: "#ffccff", quote: "Colors awaken." },
+    { name: "Celestial Drift", color: "#33ff99", quote: "Flowing through space." },
+    { name: "Stellar Prism", color: "#ffcc66", quote: "Light refracted." },
+    { name: "Prism Aurora", color: "#66ffcc", quote: "Colors merge." },
+    { name: "Lumina Star", color: "#ccff33", quote: "Shines across night." },
+    { name: "Solar Radiance", color: "#ff99ff", quote: "Power of sun." },
+    { name: "Nova Crest", color: "#33ccff", quote: "Top of life." }
+  ],
+  bad: [
+    { name: "Blightvine", color: "#663300", quote: "Spreads decay." },
+    { name: "Ashbloom", color: "#554433", quote: "Smoky growth." },
+    { name: "Voidroot", color: "#110022", quote: "Nothing feeds here." },
+    { name: "Nightleaf", color: "#220033", quote: "Darkness grows." },
+    { name: "Frostpetal", color: "#66ccff", quote: "Cold blooms." },
+    { name: "Toxiflame", color: "#993300", quote: "Burning poison." },
+    { name: "Shadowvine", color: "#330033", quote: "Creeps unseen." },
+    { name: "Dreadbloom", color: "#332211", quote: "Fear grows here." },
+    { name: "Cinderleaf", color: "#552200", quote: "Burning foliage." },
+    { name: "Voidflower", color: "#000033", quote: "Nothing blossoms." },
+    { name: "Ashthorn", color: "#443322", quote: "Sharp decay." },
+    { name: "Nightbramble", color: "#110011", quote: "Dark tangles." },
+    { name: "Frostvine", color: "#99ccff", quote: "Chills all life." },
+    { name: "Blightpetal", color: "#663333", quote: "Rot spreads." },
+    { name: "Shadowthorn", color: "#330022", quote: "Hidden pain." },
+    { name: "Cinderroot", color: "#552200", quote: "Burns silently." },
+    { name: "Voidbloom", color: "#000033", quote: "Nothing grows." },
+    { name: "Ashvine", color: "#443322", quote: "Creeps decay." },
+    { name: "Nightroot", color: "#110011", quote: "Darkness feeds." },
+    { name: "Frostbloom", color: "#66ccff", quote: "Cold takes hold." },
+    { name: "Blightthorn", color: "#663333", quote: "Pain spreads." },
+    { name: "Shadowroot", color: "#330033", quote: "Creeping darkness." },
+    { name: "Cindervine", color: "#552200", quote: "Burning life." },
+    { name: "Voidthorn", color: "#000022", quote: "Nothing pierces." },
+    { name: "Ashflower", color: "#443322", quote: "Smoke smothers." },
+    { name: "Nightbloom", color: "#110022", quote: "Dark grows." },
+    { name: "Frostroot", color: "#66ccff", quote: "Ice spreads." },
+    { name: "Blightroot", color: "#663333", quote: "Decay rules." },
+    { name: "Shadowbloom", color: "#330033", quote: "Creeps in dark." },
+    { name: "Cinderbloom", color: "#552200", quote: "Fire takes all." },
+    { name: "Voidvine", color: "#000033", quote: "Nothing winds." },
+    { name: "Ashbriar", color: "#443322", quote: "Sharp smoke." },
+    { name: "Nightthorn", color: "#110011", quote: "Pricks in dark." },
+    { name: "Frostthorn", color: "#66ccff", quote: "Chill cuts." },
+    { name: "Blightvine", color: "#663333", quote: "Rot spreads wide." },
+    { name: "Shadowbriar", color: "#330033", quote: "Hidden spikes." },
+    { name: "Cinderthorn", color: "#552200", quote: "Burns sharp." },
+    { name: "Voidbriar", color: "#000022", quote: "Nothing pierces." },
+    { name: "Ashbloom", color: "#443322", quote: "Smoky growth." },
+    { name: "Nightbriar", color: "#110011", quote: "Twists in dark." },
+    { name: "Frostbriar", color: "#66ccff", quote: "Cold spreads." },
+    { name: "Blightbriar", color: "#663333", quote: "Rot spreads far." },
+    { name: "Shadowthorn", color: "#330033", quote: "Hidden pain." },
+    { name: "Cinderbriar", color: "#552200", quote: "Flames bite." },
+    { name: "Voidbloom", color: "#000033", quote: "Nothing grows." },
+    { name: "Ashthorn", color: "#443322", quote: "Smoke pierces." },
+    { name: "Nightvine", color: "#110011", quote: "Creeps in dark." },
+    { name: "Frostvine", color: "#66ccff", quote: "Cold spreads." },
+    { name: "Blightthorn", color: "#663333", quote: "Decay reigns." },
+    { name: "Shadowvine", color: "#330033", quote: "Creeps silently." },
+    { name: "Cindervine", color: "#552200", quote: "Fire spreads." }
+  ]
+},
+
+
+
+
+"Secret": {
+  good: [
+    { name: "Absolute Joy", color: "#FFD700", quote: "Shine brighter." },
+    { name: "Absolute Courage", color: "#FF4500", quote: "Stand unshaken." },
+    { name: "Absolute Honor", color: "#1E90FF", quote: "Never falter." },
+    { name: "Absolute Freedom", color: "#00FA9A", quote: "Live unbound." },
+    { name: "Absolute Wisdom", color: "#8A2BE2", quote: "Think deeper." },
+    { name: "Absolute Peace", color: "#87CEEB", quote: "Be still." },
+    { name: "Absolute Strength", color: "#FF6347", quote: "Power within." },
+    { name: "Absolute Loyalty", color: "#DC143C", quote: "Forever true." },
+    { name: "Absolute Integrity", color: "#708090", quote: "Stay real." },
+    { name: "Absolute Valor", color: "#FF8C00", quote: "Fear nothing." },
+    { name: "Absolute Justice", color: "#00CED1", quote: "Balance all." },
+    { name: "Absolute Hope", color: "#FFFF66", quote: "Keep believing." },
+    { name: "Absolute Resilience", color: "#32CD32", quote: "Rise again." },
+    { name: "Absolute Empathy", color: "#FFC0CB", quote: "I feel you." },
+    { name: "Absolute Determination", color: "#FF4500", quote: "Never quit." },
+    { name: "Absolute Clarity", color: "#00BFFF", quote: "See truth." },
+    { name: "Absolute Serenity", color: "#9370DB", quote: "Calm soul." },
+    { name: "Absolute Innovation", color: "#FFD700", quote: "Forge new." },
+    { name: "Absolute Tenacity", color: "#FFA500", quote: "Hold strong." },
+    { name: "Absolute Sacrifice", color: "#B22222", quote: "For others." },
+    { name: "Absolute Willpower", color: "#2E8B57", quote: "Push on." },
+    { name: "Absolute Creativity", color: "#778899", quote: "Make more." },
+    { name: "Absolute Unity", color: "#20B2AA", quote: "Together one." },
+    { name: "Absolute Purity", color: "#FFFFFF", quote: "Untouched." }
+  ],
+  bad: [
+    { name: "True Fear", color: "#000000", quote: "Shiver now." },
+    { name: "True Anger", color: "#B22222", quote: "Burn inside." },
+    { name: "True Hatred", color: "#8B0000", quote: "Despise all." },
+    { name: "True Greed", color: "#228B22", quote: "Take more." },
+    { name: "True Envy", color: "#006400", quote: "I want it." },
+    { name: "True Deceit", color: "#4B0082", quote: "Trust breaks." },
+    { name: "True Chaos", color: "#FFD700", quote: "Unleash ruin." },
+    { name: "True Sorrow", color: "#1E90FF", quote: "Cry eternal." },
+    { name: "True Despair", color: "#483D8B", quote: "No hope." },
+    { name: "True Tyranny", color: "#8B0000", quote: "Obey me." },
+    { name: "True Corruption", color: "#556B2F", quote: "Rot within." },
+    { name: "True Malice", color: "#191970", quote: "I harm." },
+    { name: "True Vengeance", color: "#8A2BE2", quote: "Pay back." },
+    { name: "True Isolation", color: "#2F4F4F", quote: "Alone always." },
+    { name: "True Destruction", color: "#A52A2A", quote: "Break all." },
+    { name: "True Cruelty", color: "#800000", quote: "I enjoy it." },
+    { name: "True Pride", color: "#DAA520", quote: "Above all." },
+    { name: "True Darkness", color: "#2C2C2C", quote: "No light." },
+    { name: "True Regret", color: "#4682B4", quote: "Too late." },
+    { name: "True Doom", color: "#4B4B4B", quote: "End awaits." },
+    { name: "True Betrayal", color: "#9400D3", quote: "Backstabbed." },
+    { name: "True Wrath", color: "#FF0000", quote: "Unending rage." },
+    { name: "True Obsession", color: "#8B008B", quote: "Can’t stop." },
+    { name: "True Rot", color: "#556B2F", quote: "Decay spreads." },
+    { name: "True Silence", color: "#696969", quote: "No sound." }
+  ]
+ }
+};
+const rarityPool = rarities.flatMap(r => Array(Math.round(r.weight * 100)).fill(r));
+let inventory = [];
+let seenSouls = {};
+
+
+function drawPixelHeart(centerX, centerY, size, fillStyle, flip = false) {
+  const pixel = size/ 7;
+  const pattern = [
+    "01100110",
+    "11111111",
+    "11111111",
+    "11111111",
+    "01111110",
+    "00111100",
+    "00011000",
+    "00000000"
+  ];
+  ctx.fillStyle = fillStyle; // <- can be solid color OR gradient
+  for (let y = 0; y < pattern.length; y++) {
+    for (let x = 0; x < pattern[y].length; x++) {
+      if (pattern[y][x] === "1") {
+        const drawY = flip ? centerY + (3 - y) * pixel : centerY + (y - 4) * pixel;
+        ctx.fillRect(centerX + (x - 4) * pixel, drawY, pixel, pixel);
+      }
+    }
+  }
+}
+
+
+
+
+function getCoinValue(rarity) {
+  switch (rarity) {
+    case "Common": return 50;
+    case "Uncommon": return 100;
+    case "Rare": return 250;
+    case "Epic": return 600;
+    case "Legendary": return 1500;
+    case "Mythic": return 300 * 50;
+    case "Celestial": return 600 * 50;
+    case "Prismatic": return 1000 * 50;
+    case "Secret": return 10000 * 50;
+    default: return 0;
+  }
+}
+
+
+
+
+function getRandomSoul() {
+  const rarity = rarityPool[Math.floor(Math.random() * rarityPool.length)];
+  const isBad = Math.random() < 0.5;
+  const pool = (soulMap[rarity.name] && (isBad ? soulMap[rarity.name].bad : soulMap[rarity.name].good)) || [];
+  const soul = pool[Math.floor(Math.random() * pool.length)] || { name: "???", color: "white", quote: "Unknown" };
+  return {
+    ...soul,
+    rarity: rarity.name,
+    isBad,
+    timestamp: new Date().toLocaleTimeString(),
+    locked: false
+  };
+}
+
+
+function drawSoul(soul) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+
+
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+
+
+  ctx.shadowColor = soul.color;
+
+
+  ctx.shadowBlur = 50;
+  drawPixelHeart(cx, cy - 60, 160, soul.color, soul.isBad);
+
+
+  ctx.shadowBlur = 150;
+  drawPixelHeart(cx, cy - 60, 160, soul.color, soul.isBad);
+
+
+  ctx.shadowBlur = 300;
+  drawPixelHeart(cx, cy - 60, 160, soul.color, soul.isBad);
+
+
+  ctx.shadowBlur = 600;
+  drawPixelHeart(cx, cy - 60, 160, soul.color, soul.isBad);
+
+
+  ctx.shadowBlur = 1000;
+  drawPixelHeart(cx, cy - 60, 160, soul.color, soul.isBad);
+
+
+  ctx.shadowBlur = 2000;
+  drawPixelHeart(cx, cy - 60, 160, soul.color, soul.isBad);
+
+
+  // reset shadow so text isn’t blurred
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
+
+
+  // Soul name
+  ctx.fillStyle = soul.color;
+  ctx.font = "28px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(soul.name, cx, cy + 70);
+
+
+  // Rarity colored by rarity map
+  const rarityObj = rarities.find(r => r.name === soul.rarity);
+  ctx.fillStyle = (rarityObj && rarityObj.color) || "#fff";
+  ctx.font = "16px monospace";
+  ctx.fillText("Rarity: " + soul.rarity, cx, cy + 100);
+
+
+  // Quote and timestamp
+  ctx.fillStyle = soul.color;
+  ctx.fillText("“" + soul.quote + "”", cx, cy + 125);
+  ctx.fillText("Rolled at: " + soul.timestamp, cx, cy + 150);
+
+
+  ctx.restore();
+}
+
+
+function animateRoll() {
+  const now = Date.now();
+  const adjustedCooldown = rollCooldown / playerBoosts.speed;
+  if (now - lastRollTime < adjustedCooldown) {
+    console.log("Still cooling down...");
+    return;
+  }
+  lastRollTime = now;
+  if (isRolling) return;
+
+
+if (!hasRolled) {
+  document.getElementById("rollHint").style.display = "none";
+  hasRolled = true;
+}
+  isRolling = true;
+
+
+  
+  const startTime = performance.now();
+  const rollDuration = 1000;
+
+
+
+
+  function drawFrame(now) {
+    const elapsed = now - startTime;
+
+
+
+
+    const color = `hsl(${Math.random() * 360}, 100%, 70%)`;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawPixelHeart(canvas.width / 2, canvas.height / 2 - 60, 160, color);
+    ctx.fillStyle = "white";
+    ctx.font = "28px monospace";
+    ctx.fillText("Rolling...", canvas.width / 3, canvas.height / 2 + 70);
+
+
+
+
+    if (elapsed < rollDuration) {
+      requestAnimationFrame(drawFrame);
+    } else {
+      try {
+        const finalSoul = getRandomSoul();
+        drawSoul(finalSoul);
+        addToInventory(finalSoul);
+      } catch (e) {
+        console.error("Error during roll:", e);
+      } finally {
+        isRolling = false;
+        console.log("Rolling ended");
+      }
+    }
+  }
+
+
+
+
+  console.log("Rolling started");
+  requestAnimationFrame(drawFrame);
+}
+
+
+
+
+function addToInventory(soul) {
+  // 🚫 If this rarity is skipped, don’t add it
+  if (skipSettings[soul.rarity]) {
+    console.log(`Skipped ${soul.rarity} soul: ${soul.name}`);
+    return;
+  }
+
+
+  if (inventory.length >= maxInventorySlots) {
+    alert("Inventory full. Please delete or upgrade slots.");
+    return;
+  }
+
+
+  inventory.push(soul);
+  seenSouls[soul.name + "-" + soul.rarity] = true;
+  renderInventory();
+}
+
+
+function switchInventoryTab(tab) {
+  const soulTab = document.getElementById("soulInventoryTab");
+  const itemTab = document.getElementById("itemInventoryTab");
+
+
+
+
+  const soulsBtn = document.getElementById("soulsTabBtn");
+  const itemsBtn = document.getElementById("itemsTabBtn");
+
+
+
+
+  if (tab === 'souls') {
+    soulTab.style.display = "block";
+    itemTab.style.display = "none";
+    soulsBtn.style.background = "#444";
+    itemsBtn.style.background = "#222";
+  } else {
+    soulTab.style.display = "none";
+    itemTab.style.display = "block";
+    soulsBtn.style.background = "#222";
+    itemsBtn.style.background = "#444";
+  }
+}
+
+
+
+
+function toggleSoulIndex() {
+  const index = document.getElementById("soulIndex");
+  if (index.style.display === "block") {
+    index.style.display = "none";
+  } else {
+    renderSoulIndex(); // Always rerender when opening
+  }
+}
+
+
+
+
+function renderSoulIndex() {
+  const index = document.getElementById("soulIndex");
+  index.innerHTML = "";
+  index.style.display = "block";
+  index.style.position = "fixed";
+  index.style.top = "50%";
+  index.style.left = "50%";
+  index.style.transform = "translate(-50%, -50%)";
+  index.style.width = "90%";
+  index.style.maxWidth = "800px";
+  index.style.maxHeight = "80%";
+  index.style.background = "#111";
+  index.style.border = "2px solid white";
+  index.style.padding = "20px";
+  index.style.overflowY = "auto";
+  index.style.zIndex = "1000";
+  index.style.borderRadius = "10px";
+  index.style.boxShadow = "0 0 20px rgba(255,255,255,0.3)";
+
+
+
+
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "✖ Close";
+  closeBtn.onclick = () => index.style.display = "none";
+  closeBtn.style.background = "#222";
+  closeBtn.style.color = "white";
+  closeBtn.style.padding = "6px 12px";
+  closeBtn.style.border = "none";
+  closeBtn.style.borderRadius = "5px";
+  closeBtn.style.cursor = "pointer";
+  closeBtn.style.float = "right";
+  index.appendChild(closeBtn);
+
+
+
+
+  let foundSouls = 0;
+  let totalSouls = 0;
+
+
+
+
+  const container = document.createElement("div");
+  container.style.display = "flex";
+  container.style.flexWrap = "wrap";
+  container.style.gap = "8px";
+
+
+
+
+  for (const rarity of rarities) {
+    const souls = soulMap[rarity.name];
+    if (!souls) continue;
+
+
+
+
+    const allSouls = [...souls.good, ...souls.bad];
+    totalSouls += allSouls.length;
+
+
+
+
+    for (const soul of allSouls) {
+      const soulKey = soul.name + "-" + rarity.name;
+      const isSeen = seenSouls[soulKey];
+      if (isSeen) foundSouls++;
+
+
+
+
+      const soulEl = document.createElement("div");
+      soulEl.textContent = `${soul.name}\n(${rarity.name})`;
+      soulEl.style.background = rarity.color || "#333";
+      soulEl.style.padding = "8px";
+      soulEl.style.borderRadius = "6px";
+      soulEl.style.fontSize = "12px";
+      soulEl.style.textAlign = "center";
+      soulEl.style.whiteSpace = "pre-line";
+      soulEl.style.width = "100px";
+      soulEl.style.border = isSeen ? "2px solid #0f0" : "1px solid gray";
+      soulEl.style.opacity = isSeen ? "1" : "0.3";
+      container.appendChild(soulEl);
+    }
+  }
+
+
+
+
+  const summary = document.createElement("div");
+  summary.innerHTML = `<strong>Souls Found:</strong> ${foundSouls} / ${totalSouls}`;
+  summary.style.marginBottom = "16px";
+  summary.style.fontSize = "16px";
+  summary.style.color = "lightgray";
+
+
+
+
+  index.appendChild(summary);
+  index.appendChild(container);
+}
+
+
+
+
+document.addEventListener("keydown", e => {
+  if (e.code === "Space") animateRoll();
+});
+
+
+
+
+// --- SHOP CONFIG ---
+const shopItems = [
+  // Common
+  { name: "Luck Charm", rarity: "Common", effect: "Luck +0.1x", effectType: "luck", effectValue: 1.1, chance: 50 },
+  { name: "Rusty Coin", rarity: "Common", effect: "+10% coin gain", effectType: "coin", effectValue: 1.1, chance: 50 },
+
+
+  // Uncommon
+  { name: "Lucky Clover", rarity: "Uncommon", effect: "Luck +0.2x", effectType: "luck", effectValue: 1.2, chance: 25 },
+  { name: "Speed Sand", rarity: "Uncommon", effect: "Roll Speed 1.2x", effectType: "speed", effectValue: 1.2, chance: 25 },
+  { name: "Pocket Watch", rarity: "Uncommon", effect: "+1.5s Auto Roll Time", effectType: "autoTime", effectValue: 1.5, chance: 25 },
+
+
+  // Rare
+  { name: "Shiny Amulet", rarity: "Rare", effect: "Luck +0.3x", effectType: "luck", effectValue: 1.3, chance: 15 },
+  { name: "Coin Pouch", rarity: "Rare", effect: "+25% coin gain", effectType: "coin", effectValue: 1.25, chance: 15 },
+
+
+  // Epic
+  { name: "Enchanted Dice", rarity: "Epic", effect: "Luck +0.5x", effectType: "luck", effectValue: 1.5, chance: 5 },
+  { name: "Golden Hourglass", rarity: "Epic", effect: "Roll Speed 1.5x", effectType: "speed", effectValue: 1.5, chance: 5 },
+  { name: "Temporal Clock", rarity: "Epic", effect: "+3.0s Auto Roll Time", effectType: "autoTime", effectValue: 3.0, chance: 5 },
+
+
+  // Legendary
+  { name: "Dragon Fang", rarity: "Legendary", effect: "Luck +1.0x", effectType: "luck", effectValue: 2.0, chance: 2.5 },
+  { name: "Treasure Map", rarity: "Legendary", effect: "+50% coin gain", effectType: "coin", effectValue: 1.5, chance: 2.5 },
+
+
+  // Mythic
+  { name: "Phoenix Feather", rarity: "Mythic", effect: "Luck +1.5x", effectType: "luck", effectValue: 2.5, chance: 1 },
+  { name: "Crown of Gold", rarity: "Mythic", effect: "x2 coin gain", effectType: "coin", effectValue: 2.0, chance: 1 },
+  { name: "Eternal Sundial", rarity: "Mythic", effect: "+5.0s Auto Roll Time", effectType: "autoTime", effectValue: 5.0, chance: 1 },
+
+
+  // Celestial
+  { name: "Star Fragment", rarity: "Celestial", effect: "Luck +2.0x", effectType: "luck", effectValue: 3.0, chance: 0.5 },
+  { name: "Cosmic Coin", rarity: "Celestial", effect: "x3 coin gain", effectType: "coin", effectValue: 3.0, chance: 0.5 },
+
+
+  // Prismatic
+  { name: "Rainbow Essence", rarity: "Prismatic", effect: "Luck +3.0x", effectType: "luck", effectValue: 4.0, chance: 0.3 },
+  { name: "Mirror of Fortune", rarity: "Prismatic", effect: "x4 coin gain", effectType: "coin", effectValue: 4.0, chance: 0.3 },
+  { name: "Chrono Core", rarity: "Prismatic", effect: "+8.0s Auto Roll Time", effectType: "autoTime", effectValue: 8.0, chance: 0.3 },
+
+
+  // Secret
+  { name: "True Balance", rarity: "Secret", effect: "Luck +20x", effectType: "luck", effectValue: 20.0, chance: 0.005 },
+  { name: "Omega Coin", rarity: "Secret", effect: "x20 coin gain", effectType: "coin", effectValue: 20.0, chance: 0.005 }
+];
+
+
+
+
+const rarityChances = {
+  Common: 50,
+  Uncommon: 25,
+  Rare: 15,
+  Epic: 5,
+  Legendary: 2.5,
+  Mythic: 1,
+  Celestial: 0.5,
+  Prismatic: 0.3,
+  Secret: 0.005
+};
+
+
+
+
+let shopInventory = [];
+let shopResetTime = 5 * 60;
+
+
+
+
+let playerBoosts = {
+  coin: 1.0,
+  luck: 1.0,
+  speed: 1.0,
+  autoTime: 0.0 // in seconds
+};
+
+
+function getBoostDuration(rarity) {
+  switch (rarity) {
+    case "Common": return 60 * 1000;
+    case "Uncommon": return 3 * 60 * 1000;
+    case "Rare": return 5 * 60 * 1000;
+    case "Epic": return 10 * 60 * 1000;
+    case "Legendary": return 20 * 60 * 1000;
+    case "Mythic": return 40 * 60 * 1000;
+    case "Celestial": return 60 * 60 * 1000;
+    case "Prismatic": return 60 * 60 * 1000;
+    case "Secret": return 60 * 60 * 1000;
+      return (20 + Math.floor(Math.random() * 21)) * 60 * 1000;
+    default: return 60 * 1000;
+  }
+}
+
+
+
+
+function getItemCost(rarity) {
+  switch (rarity) {
+    case "Common": return 200;
+    case "Uncommon": return 500;
+    case "Rare": return 1000;
+    case "Epic": return 2500;
+    case "Legendary": return 5000;
+    case "Mythic": return 10000;
+    case "Celestial": return 15000;
+    case "Prismatic": return 20000;
+    case "Secret": return 100000;
+    default: return 1000;
+  }
+}
+
+
+
+
+function generateShopInventory() {
+  shopInventory = [];
+  shopItems.forEach(item => {
+    const chance = rarityChances[item.rarity] * 2;
+    const roll = Math.random() * 100;
+    const inStock = roll <= chance;
+
+
+
+
+    let stock = 0;
+    if (inStock) {
+      if (item.rarity === "Common") stock = Math.floor(Math.random() * 4) + 3;
+      else if (item.rarity === "Uncommon") stock = Math.floor(Math.random() * 3) + 2;
+      else stock = 1;
+    }
+
+
+
+
+    shopInventory.push({
+      ...item,
+      stock,
+      inStock,
+      cost: getItemCost(item.rarity)
+    });
+  });
+}
+
+
+
+
+function renderShop() {
+  const container = document.getElementById("shopItemsContainer");
+  if (!container) return;
+  container.innerHTML = ""; // clear old items
+
+
+
+
+  shopInventory.forEach(item => {
+    const el = document.createElement("div");
+    el.style.padding = "10px";
+    el.style.marginBottom = "10px";
+    el.style.border = "1px solid #555";
+    el.style.borderRadius = "8px";
+    el.style.background = "#222";
+
+
+
+
+    el.innerHTML = `
+      <div style="font-weight:bold; color:${
+        item.rarity === 'Common' ? 'gray' : 
+        item.rarity === 'Uncommon' ? 'green' : 
+        item.rarity === 'Rare' ? 'blue' : 
+        item.rarity === 'Epic' ? 'purple' : 
+        item.rarity === 'Legendary' ? 'orange' : 
+        item.rarity === 'Mythic' ? 'red' : 
+        item.rarity === 'Celestial' ? 'cyan' : 
+        item.rarity === 'Prismatic' ? 'magenta' : 
+        item.rarity === 'Secret' ? 'black' : 'white'
+      }">
+        ${item.name}
+      </div>
+      <div style="font-size:12px; color:lightgray;">${getItemEffectText(item)}</div>
+      <div style="font-size:12px;">Rarity: ${item.rarity}</div>
+      <div style="font-size:12px;">Chance: ${(rarityChances[item.rarity] * 2).toFixed(1)}%</div>
+      <div style="font-size:12px;">${item.inStock ? `In Stock: ${item.stock}` : "❌ No Stock"}</div>
+    `;
+
+
+
+
+    if (item.inStock) {
+      const buyBtn = document.createElement("button");
+      buyBtn.textContent = `Buy (${item.cost}💰)`;
+      buyBtn.style.marginTop = "5px";
+      buyBtn.style.padding = "4px 8px";
+      buyBtn.style.background = "#2ecc71";
+      buyBtn.style.color = "white";
+      buyBtn.style.border = "none";
+      buyBtn.style.borderRadius = "5px";
+      buyBtn.style.cursor = "pointer";
+      buyBtn.onclick = () => buyItem(item);
+      el.appendChild(buyBtn);
+    }
+
+
+
+
+    container.appendChild(el); // ✅ append to container
+  });
+}
+
+
+
+
+function applyTimedBoost(type, multiplier, durationMs) {
+  playerBoosts[type] *= multiplier;
+  updateBoostStatus();
+
+
+
+
+  setTimeout(() => {
+    playerBoosts[type] /= multiplier;
+    updateBoostStatus();
+  }, durationMs);
+}
+
+
+
+
+function buyItem(item) {
+  if (money >= item.cost) {
+    money -= item.cost;
+item.stock--;
+if (item.stock <= 0) item.inStock = false;
+renderShop(); // Re-render shop after update
+
+
+
+
+  itemInventory.push({
+  name: item.name,
+  rarity: item.rarity,
+  effectType: item.effectType,
+  effectValue: item.effectValue,
+  duration: getBoostDuration(item.rarity),
+  description: getItemEffectText(item)
+});
+    
+    updateItemInventory();   // ⬅️ You'll need this function
+  }
+}
+
+
+
+
+function updateItemInventory() {
+  const container = document.getElementById("itemInventoryList");
+  if (!container) return;
+  container.innerHTML = "";
+
+
+
+
+  if (itemInventory.length === 0) {
+    container.innerHTML = "<p>No items yet.</p>";
+    return;
+  }
+
+
+
+
+  // Group items by name + rarity
+  const grouped = {};
+  itemInventory.forEach((item, i) => {
+    const key = item.name + "-" + item.rarity;
+    if (!grouped[key]) {
+      grouped[key] = { ...item, count: 0, indices: [] };
+    }
+    grouped[key].count++;
+    grouped[key].indices.push(i); // keep track of original indices
+  });
+
+
+
+
+  // Render each unique group
+  Object.values(grouped).forEach(item => {
+    const div = document.createElement("div");
+    div.style.marginBottom = "10px";
+    div.style.padding = "10px";
+    div.style.border = "1px solid white";
+    div.style.borderRadius = "8px";
+    div.style.background = "#222";
+
+
+
+
+div.innerHTML = `
+  <strong>${item.name} x${item.count}</strong><br>
+  <span>Rarity: ${item.rarity}</span><br>
+  <span>Effect: ${item.description}</span><br>
+  <span>Duration: ${item.duration ? Math.round(item.duration / 60000) + " min" : "Instant"}</span><br><br>
+`;
+
+
+    // ✅ Add use button for stack
+    const useBtn = document.createElement("button");
+    useBtn.textContent = "Use One";
+    useBtn.style.background = "#2ecc71";
+    useBtn.style.color = "white";
+    useBtn.style.border = "none";
+    useBtn.style.padding = "4px 8px";
+    useBtn.style.borderRadius = "5px";
+    useBtn.style.cursor = "pointer";
+
+
+
+
+    useBtn.onclick = () => {
+      // Remove one instance from the real inventory
+      const indexToRemove = item.indices.pop();
+      if (indexToRemove !== undefined) {
+        itemInventory.splice(indexToRemove, 1);
+      }
+
+
+
+
+      // Apply effect (your existing logic)
+      useItem(item);
+
+
+
+
+      // Re-render inventory
+      updateItemInventory();
+    };
+
+
+
+
+    div.appendChild(useBtn);
+    container.appendChild(div);
+  });
+}
+
+
+
+
+function useItem(item) {
+  applyItemEffect(item);  // actually apply the boost
+}
+
+
+
+
+function updateShopTimerDisplay() {
+  const timerEl = document.getElementById("shopResetTimer");
+  const minutes = Math.floor(shopResetTime / 60);
+  const seconds = shopResetTime % 60;
+  if (timerEl) timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+} 
+
+
+function getItemEffectText(item) {
+  if (item.effectType === "autoTime") {
+    const seconds = getBoostDuration(item.rarity) / 1000;
+    return `Auto Roll +${formatTime(seconds)}`;
+  }
+  return item.effect;
+}
+
+
+setInterval(() => {
+  shopResetTime--;
+  if (shopResetTime <= 0) {
+    generateShopInventory();
+    renderShop();
+    shopResetTime = 5 * 60;
+  }
+  updateShopTimerDisplay();
+}, 1000);
+
+
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  generateShopInventory();
+  renderShop();
+});
+
+
+
+
+function toggleShop() {
+  const shop = document.getElementById("shopSidebar");
+  shop.style.display = (shop.style.display === "none" || shop.style.display === "") ? "block" : "none";
+}
+
+
+
+
+function formatTime(seconds) {
+  let h = Math.floor(seconds / 3600);
+  let m = Math.floor((seconds % 3600) / 60);
+  let s = seconds % 60;
+  return [h, m, s].map(v => String(v).padStart(2, "0")).join(":");
+}
+
+
+function updateBoostStatus() {
+  const boostEl = document.getElementById("boostStatus");
+  if (!boostEl) return;
+
+
+  const luck = playerBoosts.luck.toFixed(1);
+  const speed = playerBoosts.speed.toFixed(2);
+  const coin = playerBoosts.coin.toFixed(2);
+
+
+  const autoTimeText = formatTime(Math.floor(autoRollTime));
+
+
+  boostEl.textContent =
+    `Luck: ${luck}x | Speed: ${speed}x | Coin: ${coin}x | Auto Time: ${autoTimeText}`;
+}
+
+
+function applyItemEffect(item) {
+  const duration = getBoostDuration(item.rarity);
+
+
+  if (item.effectType === "luck" || item.effectType === "speed") {
+    applyTimedBoost(item.effectType, item.effectValue, duration);
+
+
+  } else if (item.effectType === "coin") {
+    applyTimedBoost("coin", item.effectValue, duration);
+    updateCoinCounter();
+
+
+  } else if (item.effectType === "autoTime") {
+  const secondsToAdd = getBoostDuration(item.rarity) / 1000; // convert ms → s
+  autoRollTime = Math.min(autoRollTime + secondsToAdd, MAX_AUTO_TIME);
+  updateBoostStatus();
+}
+}
+
+
+
+
+function startPassiveIncome() {
+  setInterval(() => {
+    let income = 0;
+    for (const soul of inventory) {
+      income += getSoulIncome(soul);
+    }
+
+
+    //safe coin multiplier
+    const coinMult = Number(playerBoosts?.coin);
+    const safeCoinMult = Number.isFinite(coinMult) && coinMult > 0 ? coinMult : 1.0;
+
+
+    money += income * safeCoinMult;
+
+
+    //recover if money became NaN somehow
+    if (!Number.isFinite(money)) money = 0;
+
+
+    updateCoinCounter();
+  }, 1000);
+}
+
+
+function generateSaveData() {
+  const saveData = {
+  money,
+  inventory,
+  itemInventory,
+  seenSouls,
+  maxInventorySlots,
+  slotUpgradeLevel,
+  autoRollTime
+  };
+
+
+
+
+  // Convert → JSON
+  let json = JSON.stringify(saveData);
+
+
+
+
+  // Add random salt
+  const salt = Math.random().toString(36).substring(2, 15);
+  json = salt + "|" + json + "|" + salt.split("").reverse().join("");
+
+
+
+
+  // Encode base64
+  let encoded = btoa(json);
+
+
+
+
+  // Wrap with fake header/footer
+  return "SOULSAVEv1::" + encoded + "::ENDSOULSAVE";
+}
+
+
+
+
+function parseSaveData(data) {
+  try {
+    if (!data.startsWith("SOULSAVEv1::") || !data.endsWith("::ENDSOULSAVE")) {
+      throw new Error("Invalid save format!");
+    }
+
+
+
+
+    // Remove wrappers
+    let encoded = data.replace("SOULSAVEv1::", "").replace("::ENDSOULSAVE", "");
+    let decoded = atob(encoded);
+
+
+
+
+    // Remove salt
+    let parts = decoded.split("|");
+    if (parts.length < 3) throw new Error("Invalid save data.");
+    let json = parts[1];
+
+
+
+
+    return JSON.parse(json);
+  } catch (err) {
+    alert("Failed to load save: " + err.message);
+    return null;
+  }
+}
+
+
+
+
+function downloadSave() {
+  const data = generateSaveData();
+  const blob = new Blob([data], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+
+
+
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "souls_save.dat";
+  a.click();
+
+
+
+
+  URL.revokeObjectURL(url);
+}
+
+
+
+
+function importSave(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const content = e.target.result;
+    const save = parseSaveData(content);
+    if (save) {
+      money = save.money || 0;
+      inventory = save.inventory || [];
+      itemInventory = save.itemInventory || [];
+
+
+
+
+      seenSouls = save.seenSouls || {};
+      maxInventorySlots = save.maxInventorySlots || 10;
+      slotUpgradeLevel = save.slotUpgradeLevel || 0;
+      autoRollTime = save.autoRollTime || 0;
+    
+      updateUpgradeUI();
+      updateCoinCounter();
+      renderInventory();
+      renderSoulIndex();
+      renderItemInventory();
+      updateBoostStatus();
+      alert("Save loaded successfully!");
+    }
+  };
+  reader.readAsText(file);
+}
+
+
+
+
+function getUpgradeCost() {
+  if (slotUpgradeLevel < 10) {
+    return (slotUpgradeLevel + 1) * 100;
+  } else {
+    return Math.pow(2, Math.floor(slotUpgradeLevel / 10)) * (slotUpgradeLevel % 10 + 1) * 100;
+  }
+}
+
+
+
+
+function upgradeSlots() {
+  const cost = getUpgradeCost();
+  if (money < cost) {
+    alert("Not enough coins!");
+    return;
+  }
+  money -= cost;
+  slotUpgradeLevel++;
+  maxInventorySlots++;
+  updateUpgradeUI();
+}
+
+
+
+
+function updateUpgradeUI() {
+  const cost = getUpgradeCost();
+  document.getElementById("upgradeBtn").textContent = `Upgrade Slots (Cost: ${cost}💰)`;
+  document.getElementById("upgradeInfo").textContent = `Current Slots: ${maxInventorySlots}`;
+document.getElementById("upgradeBtn").onclick = upgradeSlots;
+}
+
+
+function autoSave() {
+  try {
+    const data = generateSaveData();
+    localStorage.setItem("soulsSave", data);
+    console.log("Game auto-saved!");
+  } catch (e) {
+    console.error("Auto-save failed:", e);
+  }
+}
+
+
+function autoLoad() {
+  try {
+    const data = localStorage.getItem("soulsSave");
+    if (!data) return;
+
+
+    const save = parseSaveData(data);
+    if (save) {
+      money = save.money || 0;
+      inventory = save.inventory || [];
+      itemInventory = save.itemInventory || [];
+      seenSouls = save.seenSouls || {};
+      maxInventorySlots = save.maxInventorySlots || 10;
+      slotUpgradeLevel = save.slotUpgradeLevel || 0;
+
+
+      updateUpgradeUI();
+      updateCoinCounter();
+      renderInventory();
+      renderSoulIndex();
+      updateItemInventory();
+
+
+      console.log("Game auto-loaded!");
+    }
+  } catch (e) {
+    console.error("Auto-load failed:", e);
+  }
+}
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  autoLoad();
+  generateShopInventory();
+  renderShop();
+  updateItemInventory();
+  setInterval(autoSave, 1000);
+});
+
+
+// Background settings
+const bgColorPicker = document.getElementById("bgColorPicker");
+const bgImageUpload = document.getElementById("bgImageUpload");
+
+
+bgColorPicker.addEventListener("input", (e) => {
+  document.body.style.background = e.target.value;
+});
+
+
+bgImageUpload.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    document.body.style.background = `url(${ev.target.result}) no-repeat center center fixed`;
+    document.body.style.backgroundSize = "cover";
+  };
+  reader.readAsDataURL(file);
+});
+
+
+function clearBackgroundImage() {
+  document.body.style.background = bgColorPicker.value; // fallback to chosen color
+}
+
+
+function resetAllData() {
+  if (confirm("⚠️ This will erase ALL progress and restart the game. Are you sure?")) {
+    // Clear localStorage
+    localStorage.clear();
+
+
+    // Reset important in-memory variables
+    money = 0;
+    inventory = [];
+    itemInventory = [];
+    slotUpgradeLevel = 0;
+    maxInventorySlots = 10;
+    hasRolled = false;
+
+
+    // Optional: clear boosts or other game-specific states
+    if (typeof playerBoosts !== "undefined") {
+      playerBoosts = { coin: 1.0, luck: 1.0, speed: 1.0 };
+    }
+
+
+    // Reload page to restart everything
+    location.reload();
+  }
+}
+
+
+setInterval(() => {
+  if (autoRollActive && autoRollTime > 0) {
+
+
+    // Stop if inventory is full
+    if (inventory.length >= maxInventorySlots) {
+      alert("Inventory full. Auto Roll stopped.");
+      autoRollActive = false;
+      document.getElementById("autoRollToggle").textContent = "Start Auto Roll";
+      return;
+    }
+
+
+    animateRoll(); 
+    autoRollTime -= 1 / playerBoosts.speed;
+    if (autoRollTime < 0) autoRollTime = 0;
+
+
+    updateBoostStatus();
+
+
+    // Stop if time runs out
+    if (autoRollTime <= 0) {
+      alert("Auto Roll time ended.");
+      autoRollActive = false;
+      document.getElementById("autoRollToggle").textContent = "Start Auto Roll";
+    }
+  }
+}, 1000);
+
+
+
+
+startPassiveIncome();
+
+
+
+
+</script>
+</body>
+</html>
