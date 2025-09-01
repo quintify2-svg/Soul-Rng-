@@ -2521,10 +2521,23 @@ startPassiveIncome();
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+const CSS_SIZE = 450; // what your game logic expects
+const INTERNAL_SIZE = 1000; // bigger buffer so shadows fit
+
+canvas.width = INTERNAL_SIZE;
+canvas.height = INTERNAL_SIZE;
+
+// keep it visually the same size in CSS
+canvas.style.width = CSS_SIZE + "px";
+canvas.style.height = CSS_SIZE + "px";
+
+// scale drawing so code still uses 450x450 coords
+ctx.scale(INTERNAL_SIZE / CSS_SIZE, INTERNAL_SIZE / CSS_SIZE);
 
 
 </script>
 </body>
 
 </html>
+
 
