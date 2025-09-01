@@ -1427,14 +1427,9 @@ function getRandomSoul() {
 
 function drawSoul(soul) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.save();
-
-
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
-
-
-  ctx.shadowColor = soul.color;
+  
+  withScale(() => {
+    ctx.save();  ctx.shadowColor = soul.color;
 
 
   ctx.shadowBlur = 50;
@@ -2521,25 +2516,30 @@ startPassiveIncome();
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Keep the game logic size (the size your code assumes)
+// Game logic size (what your code expects)
 const LOGICAL_SIZE = 450;
 
-// Make the actual canvas bigger inside to prevent shadow clipping
+// Bigger buffer size so shadows fit
 const INTERNAL_SIZE = 1000;
 canvas.width = INTERNAL_SIZE;
 canvas.height = INTERNAL_SIZE;
-
-// Keep visual display the same as before
 canvas.style.width = LOGICAL_SIZE + "px";
 canvas.style.height = LOGICAL_SIZE + "px";
 
-// Scale everything back so your existing coordinates still work
-ctx.scale(INTERNAL_SIZE / LOGICAL_SIZE, INTERNAL_SIZE / LOGICAL_SIZE);
+// A helper to handle scaling for each frame
+function withScale(drawFn) {
+  ctx.save();
+  ctx.scale(INTERNAL_SIZE / LOGICAL_SIZE, INTERNAL_SIZE / LOGICAL_SIZE);
+  drawFn();
+  ctx.restore();
+}
+
 
 </script>
 </body>
 
 </html>
+
 
 
 
